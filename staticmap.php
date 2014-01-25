@@ -87,9 +87,9 @@ Class staticMapLite {
 					$markerLat = floatval($markerLat);
 					$markerLon = floatval($markerLon);
 					$markerImage = basename($markerImage);
-					$this->markers[] = array('lat'=>$markerLat, 'lon'=>$markerLon, 'image'=>$markerImage);
+					$this->markers[$markerLat . $markerLon .$markerImage] = array('lat'=>$markerLat, 'lon'=>$markerLon, 'image'=>$markerImage);
 			}
-			
+			krsort($this->markers);
 		}
 		if($_GET['maptype']){
 			if(array_key_exists($_GET['maptype'],$this->tileSrcUrl)) $this->maptype = $_GET['maptype'];
