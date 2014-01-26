@@ -221,12 +221,18 @@ Class staticMapLite {
 		
 	}
 	
-	public function sendHeader(){
+	public function sendHeader($fname = null,$etag = null){
 		header('Content-Type: image/png');
-		$expires = 60*60*24*14;
+		$expires = (60*60*24)*14;
 		header("Pragma: public");
 		header("Cache-Control: maxage=".$expires);
 		header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
+		if ($fname != null && file_exists($fname)) {
+			header('Last-Modified: ' . gmdate('D, d M Y H:i:s',filemtime($fname)) . ' GMT');
+		}
+		if ($etag != null) {
+			header('ETag: ' . $etag);
+		}
 	}
 
 	public function makeMap(){
@@ -237,30 +243,46 @@ Class staticMapLite {
 	}
 
 	public function showMap(){
+		$etag = md5(var_export($_GET,true));
+		if (array_key_exists('HTTP_IF_NONE_MATCH',$_SERVER)) {
+			if ($etag == $_SERVER['HTTP_IF_NONE_MATCH']) {
+				header('HTTP/1.1 304 Not Modified');
+				return '';
+			}
+		}
 		$this->parseParams();
 		if($this->useMapCache){
 			// use map cache, so check cache for map
 			if(!$this->checkMapCache()){
-				// map is not in cache, needs to be build
+				// map is not in cache, needs to be built
 				$this->makeMap();
 				$this->mkdir_recursive(dirname($this->mapCacheIDToFilename()),0777);
 				imagepng($this->image,$this->mapCacheIDToFilename(),9);
-				$this->sendHeader();	
 				if(file_exists($this->mapCacheIDToFilename())){
+					$this->sendHeader($this->mapCacheIDToFilename());
 					return file_get_contents($this->mapCacheIDToFilename());
 				} else {
-					return imagepng($this->image);		
+					$this->sendHeader(null,$etag);
+					return imagepng($this->image);
 				}
 			} else {
 				// map is in cache
-				$this->sendHeader();	
+				if (array_key_exists('HTTP_IF_MODIFIED_SINCE',$_SERVER)) {
+					$request_time = strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']);
+					$file_time = filemtime($this->mapCacheIDToFilename());
+					if ($request_time >= $file_time) {
+						header('HTTP/1.1 304 Not Modified');
+						return '';
+					}
+				}
+				$this->sendHeader($this->mapCacheIDToFilename());
 				return file_get_contents($this->mapCacheIDToFilename());
 			}
 
 		} else {
 			// no cache, make map, send headers and deliver png
 			$this->makeMap();
-			$this->sendHeader();	
+			$this->sendHeader(null,$etag);
 			return imagepng($this->image);		
 			
 		}
