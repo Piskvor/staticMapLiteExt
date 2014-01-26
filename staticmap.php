@@ -151,6 +151,7 @@ Class staticMapLite {
 			$destX = floor(($this->width/2)-$this->tileSize*($this->centerX-$this->lonToTile($markerLon, $this->zoom)));
 			$destY = floor(($this->height/2)-$this->tileSize*($this->centerY-$this->latToTile($markerLat, $this->zoom)));
 			$destY = $destY - imagesy($markerImg);
+			$destX = $destX - (imagesx($markerImg) / 2);
 
 			imagecopy($this->image, $markerImg, $destX, $destY, 0, 0, imagesx($markerImg), imagesy($markerImg));
 		
