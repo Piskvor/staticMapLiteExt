@@ -118,7 +118,7 @@ class staticMapLiteEx {
 			$this->lat = floatval($this->lat);
 			$this->lon = floatval($this->lon);
 		} else if (count($this->markers) && $this->minZoom !== null && $this->maxZoom !== null && $this->minZoom <= $this->maxZoom) {
-			list($this->lat,$this->lon,$this->zoom) = $this->getCenterFromMarkers($this->markerBox, $this->width, $this->height, $this->maxZoom, $this->minZoom);
+			list($this->lat,$this->lon,$this->zoom) = $this->getCenterFromMarkers($this->markerBox, $this->width - 20, $this->height - 20, $this->maxZoom, $this->minZoom);
 		}
 
 		// get zoom from request
@@ -138,6 +138,27 @@ class staticMapLiteEx {
 	}
 
 	protected function getCenterFromMarkers($markerBox, $width, $height, $maxZoom, $minZoom) {
+		/*
+		 // show marker box on map
+		$this->markers[] = array(
+			'lat' => $markerBox['lat']['center'],
+			'lon' => $markerBox['lon']['center'],
+			'image' => 'ol-marker-green',
+		);
+
+		$this->markers[] = array(
+			'lat' => $markerBox['lat']['max'],
+			'lon' => $markerBox['lon']['max'],
+			'image' => 'ol-marker-green',
+		);
+
+		$this->markers[] = array(
+			'lat' => $markerBox['lat']['min'],
+			'lon' => $markerBox['lon']['min'],
+			'image' => 'ol-marker-green',
+		);
+		// */
+
 		$zoom = $maxZoom;
 		$latCorrection = 360 * cos(deg2rad($this->markerBox['lat']['center']));
 		for( ; $zoom >= $minZoom; $zoom--) {
@@ -145,6 +166,21 @@ class staticMapLiteEx {
 			// for latitude, we need to correct (otherwise calculation would be correct on the equator only)
 			$latDegreesPerPixel = $latCorrection / (pow(2,($zoom+8)));
 			$degreesHeight = $latDegreesPerPixel * $height;
+
+			/*
+			 // show degrees on map
+			$this->markers[] = array(
+				'lat' => $markerBox['lat']['center'] + $degreesHeight,
+				'lon' => $markerBox['lon']['center'] + $degreesWidth,
+				'image' => 'ol-marker-gold',
+			);
+			$this->markers[] = array(
+				'lat' => $markerBox['lat']['center'] - $degreesHeight,
+				'lon' => $markerBox['lon']['center'] - $degreesWidth,
+				'image' => 'ol-marker-gold',
+			);
+			// */
+
 			if ($degreesWidth >= $markerBox['lon']['size'] && $degreesHeight >= $markerBox['lat']['size']) {
 				break;
 			}
