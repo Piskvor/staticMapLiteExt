@@ -9,7 +9,9 @@ Uses the same Apache License 2.0 as the original project: http://www.apache.org/
 
 Additions:
 
+    - auto-select viewport and zoom from given markers
     - HTTP caching
     - fix marker overlap and position (southernmost markers are now visible "above" others)
     - configurable on init
-	- not dependent on globals any more ($_GET)
+    - not dependent on globals any more ($_GET)
+    - split class and call
