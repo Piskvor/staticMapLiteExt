@@ -21,7 +21,7 @@
  *
  * staticMapLiteEx 0.03
  * Copyright 2013 Jan Martinec
- * @author Jan Martinec <staticMapLiteEx AT martinec.name>
+ * @author Jan "Piskvor" Martinec <staticMapLiteEx AT martinec.name>
  *
  * USAGE: 
  *
@@ -32,23 +32,28 @@
 error_reporting(0);
 ini_set('display_errors','off');
 
-Class staticMapLite {
+class staticMapLiteEx {
 
 	protected $tileSize = 256;
-	protected $tileSrcUrl = array(	'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png',
-									'osmarenderer' => 'http://c.tah.openstreetmap.org/Tiles/tile/{Z}/{X}/{Y}.png',
-									'cycle' => 'http://c.andy.sandbox.cloudmade.com/tiles/cycle/{Z}/{X}/{Y}.png'
+	protected $tileSrcUrl = array(
+		'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png'
 	);
+
+	protected $ua = 'PHP/staticMapLiteEx 0.03';
 	
 	protected $tileDefaultSrc = 'mapnik';
 	protected $markerBaseDir = 'images/markers';
 	protected $osmLogo = 'images/osm_logo.png';
 
-	protected $useTileCache = true;
+	protected $useTileCache = true; // cache tiles instead of always loading from tile servers
 	protected $tileCacheBaseDir = 'cache/tiles';
 
-	protected $useMapCache = true;
+	protected $useMapCache = true; // cache resulting maps instead of always regenerating
 	protected $mapCacheBaseDir = 'cache/maps';
+
+	protected $useHTTPCache = true; // cache image in browser, using HTTP caching headers
+	protected $expireDays = 14;
+
 	protected $mapCacheID = '';
 	protected $mapCacheFile = '';
 	protected $mapCacheExtension = 'png';
@@ -56,7 +61,7 @@ Class staticMapLite {
 	protected $zoom, $lat, $lon, $width, $height, $markers, $image, $maptype;
 	protected $centerX, $centerY, $offsetX, $offsetY;
 
-	public function __construct(){
+	public function __construct($config){
 		$this->zoom = 0;
 		$this->lat = 0;
 		$this->lon = 0;
@@ -64,28 +69,47 @@ Class staticMapLite {
 		$this->height = 350;
 		$this->markers = array();
 		$this->maptype = $this->tileDefaultSrc;
+		$this->request = $config['request'];
+		$this->requestHeaders = $config['headers'];
+		if (array_key_exists('mapSources',$config)) {
+			$this->tileSrcUrl = $config['mapSources'];
+		}
+		if (array_key_exists('ua',$config)) {
+			$this->ua = $config['ua'];
+		}
+		if (array_key_exists('cache',$config)) {
+			$cache = $config['cache'];
+			if (array_key_exists('http',$cache)) {
+				$this->useHTTPCache = (boolean) $cache['http'];
+			}
+			if (array_key_exists('tile',$cache)) {
+				$this->useTileCache = (boolean) $cache['tile'];
+			}
+			if (array_key_exists('map',$cache)) {
+				$this->useMapCache = (boolean) $cache['map'];
+			}
+		}
 	}
 	
 	public function parseParams(){
-		global $_GET;
-		
-		// get zoom from GET paramter
-		$this->zoom = $_GET['zoom']?intval($_GET['zoom']):0;
+
+		// get zoom from request
+		$this->zoom = @$this->request['zoom']?intval($this->request['zoom']):0;
 		if($this->zoom>18)$this->zoom = 18;
 		
-		// get lat and lon from GET paramter
-		list($this->lat,$this->lon) = split(',',$_GET['center']);
+		// get lat and lon from request
+		list($this->lat,$this->lon) = split(',',$this->request['center']);
 		$this->lat = floatval($this->lat);
 		$this->lon = floatval($this->lon);
 		
-		// get zoom from GET paramter
-		if($_GET['size']){
-			list($this->width, $this->height) = split('x',$_GET['size']);
+		// get zoom from request
+		if(@$this->request['size']){
+			list($this->width, $this->height) = split('x',$this->request['size']);
 			$this->width = intval($this->width);
 			$this->height = intval($this->height);
 		}
-		if($_GET['markers']){
-			$markers = split('%7C|\|',$_GET['markers']);
+		if(@$this->request['markers']){
+			$markers = split('%7C|\|',$this->request['markers']);
 			foreach($markers as $marker){
 					list($markerLat, $markerLon, $markerImage) = split(',',$marker);
 					$markerLat = floatval($markerLat);
@@ -95,8 +119,8 @@ Class staticMapLite {
 			}
 			krsort($this->markers);
 		}
-		if($_GET['maptype']){
-			if(array_key_exists($_GET['maptype'],$this->tileSrcUrl)) $this->maptype = $_GET['maptype'];
+		if(@$this->request['maptype']){
+			if(array_key_exists($this->request['maptype'],$this->tileSrcUrl)) $this->maptype = $this->request['maptype'];
 		}
 	}
 
@@ -141,6 +165,7 @@ Class staticMapLite {
 
 
 	public function placeMarkers(){
+		$markerIndex = 0;
 		foreach($this->markers as $marker){
 			$markerLat = $marker['lat'];
 			$markerLon = $marker['lon'];
@@ -172,13 +197,15 @@ Class staticMapLite {
 		$filename = $this->tileUrlToFilename($url);
 		if(file_exists($filename)){
 			return file_get_contents($filename);
+		} else {
+			return '';
 		}
 	}
 	
 	public function checkMapCache(){
 		$this->mapCacheID = md5($this->serializeParams());
 		$filename = $this->mapCacheIDToFilename();
-		if(file_exists($filename)) return true;
+		return (file_exists($filename));
 	}
 
 	public function serializeParams(){		
@@ -207,8 +234,10 @@ Class staticMapLite {
 	public function fetchTile($url){
 		if($this->useTileCache && ($cached = $this->checkTileCache($url))) return $cached;
 		$ch = curl_init(); 
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
-		curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/4.0");
+		curl_setopt($ch, CURLOPT_TIMEOUT, 5); // time out faster
+		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3); // time out faster
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_USERAGENT, $this->ua);
 		curl_setopt($ch, CURLOPT_URL, $url); 
 		$tile = curl_exec($ch); 
 		curl_close($ch); 
@@ -227,15 +256,17 @@ Class staticMapLite {
 	
 	public function sendHeader($fname = null,$etag = null){
 		header('Content-Type: image/png');
-		$expires = (60*60*24)*14;
+		$expires = (60*60*24)*$this->expireDays;
 		header("Pragma: public");
-		header("Cache-Control: maxage=".$expires);
-		header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
-		if ($fname != null && file_exists($fname)) {
-			header('Last-Modified: ' . gmdate('D, d M Y H:i:s',filemtime($fname)) . ' GMT');
-		}
-		if ($etag != null) {
-			header('ETag: ' . $etag);
+		if ($this->useHTTPCache) {
+			header("Cache-Control: maxage=".$expires);
+			header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
+			if ($fname != null && file_exists($fname)) {
+				header('Last-Modified: ' . gmdate('D, d M Y H:i:s',filemtime($fname)) . ' GMT');
+			}
+			if ($etag != null) {
+				header('ETag: ' . $etag);
+			}
 		}
 	}
 
@@ -247,9 +278,9 @@ Class staticMapLite {
 	}
 
 	public function showMap(){
-		$etag = md5(var_export($_GET,true));
-		if (array_key_exists('HTTP_IF_NONE_MATCH',$_SERVER)) {
-			if ($etag == $_SERVER['HTTP_IF_NONE_MATCH']) {
+		$etag = md5(var_export($this->request,true));
+		if ($this->useHTTPCache && array_key_exists('HTTP_IF_NONE_MATCH',$this->requestHeaders)) {
+			if ($etag == $this->requestHeaders['HTTP_IF_NONE_MATCH']) {
 				header('HTTP/1.1 304 Not Modified');
 				return '';
 			}
@@ -271,8 +302,8 @@ Class staticMapLite {
 				}
 			} else {
 				// map is in cache
-				if (array_key_exists('HTTP_IF_MODIFIED_SINCE',$_SERVER)) {
-					$request_time = strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']);
+				if ($this->useHTTPCache && array_key_exists('HTTP_IF_MODIFIED_SINCE',$this->requestHeaders)) {
+					$request_time = strtotime($this->requestHeaders['HTTP_IF_MODIFIED_SINCE']);
 					$file_time = filemtime($this->mapCacheIDToFilename());
 					if ($request_time >= $file_time) {
 						header('HTTP/1.1 304 Not Modified');
@@ -294,7 +325,19 @@ Class staticMapLite {
 
 }
 
-$map = new staticMapLite();
-print $map->showMap();
-
-?>
+$map = new staticMapLiteEx(array(
+                            'request' => $_GET,
+                            'headers' => $_SERVER,
+                            'mapSources' => array(
+	                            'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png',
+	                            'osmarenderer' => 'http://c.tah.openstreetmap.org/Tiles/tile/{Z}/{X}/{Y}.png',
+	                            'cycle' => 'http://c.andy.sandbox.cloudmade.com/tiles/cycle/{Z}/{X}/{Y}.png'
+                            ),
+                            'cache' => array(
+	                            'http' => true,
+	                            'tile' => true,
+	                            'map' => true
+                            ),
+                            'ua' => 'staticMapLiteEx/0.03'
+                           ));
+echo $map->showMap();
