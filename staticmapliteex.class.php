@@ -26,7 +26,9 @@ class staticMapLiteEx {
 	protected $mapCacheFile = '';
 	protected $mapCacheExtension = 'png';
 	
-	protected $zoom, $lat, $lon, $width, $height, $markers, $image, $maptype;
+	protected $zoom, $lat, $lon, $width, $height, $image, $maptype;
+
+	protected $markers;
 	protected $centerX, $centerY, $offsetX, $offsetY;
 
 	public function __construct($config){
@@ -66,24 +68,28 @@ class staticMapLiteEx {
 		if($this->zoom>18)$this->zoom = 18;
 		
 		// get lat and lon from request
-		list($this->lat,$this->lon) = split(',',$this->request['center']);
+		list($this->lat,$this->lon) = explode(',',$this->request['center']);
 		$this->lat = floatval($this->lat);
 		$this->lon = floatval($this->lon);
 		
 		// get zoom from request
 		if(@$this->request['size']){
-			list($this->width, $this->height) = split('x',$this->request['size']);
+			list($this->width, $this->height) = explode('x',$this->request['size']);
 			$this->width = intval($this->width);
 			$this->height = intval($this->height);
 		}
 		if(@$this->request['markers']){
-			$markers = split('%7C|\|',$this->request['markers']);
+			$markers = preg_split('/%7C|\|/',$this->request['markers']);
 			foreach($markers as $marker){
-					list($markerLat, $markerLon, $markerImage) = split(',',$marker);
-					$markerLat = floatval($markerLat);
-					$markerLon = floatval($markerLon);
-					$markerImage = basename($markerImage);
-					$this->markers[$markerLat . $markerLon .$markerImage] = array('lat'=>$markerLat, 'lon'=>$markerLon, 'image'=>$markerImage);
+				list($markerLat, $markerLon, $markerImage) = explode(',',$marker);
+				$markerLat = floatval($markerLat);
+				$markerLon = floatval($markerLon);
+				$markerImage = basename($markerImage);
+				$this->markers[$markerLat . $markerLon .$markerImage] = array(
+					'lat'=>$markerLat,
+					'lon'=>$markerLon,
+					'image'=>$markerImage
+				);
 			}
 			krsort($this->markers);
 		}
