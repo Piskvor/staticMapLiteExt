@@ -382,20 +382,19 @@ class staticMapLiteEx {
 	public function serializeParams(){		
 		return join("&",array($this->zoom,$this->lat,$this->lon,$this->width,$this->height, serialize($this->markers),$this->maptype));
 	}
-	
+
 	public function mapCacheIDToFilename(){
 		if(!$this->mapCacheFile){
-			$this->mapCacheFile = $this->mapCacheBaseDir."/".substr($this->mapCacheID,0,2)."/".substr($this->mapCacheID,2,2)."/".substr($this->mapCacheID,4);
+			$this->mapCacheFile = $this->mapCacheBaseDir."/".$this->maptype."/".$this->zoom."/cache_".substr($this->mapCacheID,0,2)."/".substr($this->mapCacheID,2,2)."/".substr($this->mapCacheID,4);
 		}
 		return $this->mapCacheFile.".".$this->mapCacheExtension;
 	}
 
-
-	
 	public function mkdir_recursive($pathname, $mode){
 		is_dir(dirname($pathname)) || $this->mkdir_recursive(dirname($pathname), $mode);
 		return is_dir($pathname) || @mkdir($pathname, $mode);
 	}
+
 	public function writeTileToCache($url, $data){
 		$filename = $this->tileUrlToFilename($url);
 		$this->mkdir_recursive(dirname($filename),0777);
@@ -411,8 +410,8 @@ class staticMapLiteEx {
 		curl_setopt($ch, CURLOPT_USERAGENT, $this->ua);
 		curl_setopt($ch, CURLOPT_URL, $url); 
 		$tile = curl_exec($ch); 
-		curl_close($ch); 
-		if($this->useTileCache){
+		curl_close($ch);
+		if($tile && $this->useTileCache){
 			$this->writeTileToCache($url,$tile);
 		}
 		return $tile;
