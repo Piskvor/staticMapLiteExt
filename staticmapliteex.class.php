@@ -28,7 +28,7 @@ class staticMapLiteEx {
 	
 	protected $zoom, $lat, $lon, $width, $height, $image, $maptype;
 
-	protected $markers;
+	protected $markers, $markerBox, $minZoom, $maxZoom;
 	protected $centerX, $centerY, $offsetX, $offsetY;
 
 	public function __construct($config){
@@ -47,6 +47,12 @@ class staticMapLiteEx {
 		if (array_key_exists('ua',$config)) {
 			$this->ua = $config['ua'];
 		}
+		if (array_key_exists('minZoom',$config)) {
+			$this->minZoom = $config['minZoom'];
+		}
+		if (array_key_exists('maxZoom',$config)) {
+			$this->maxZoom = $config['maxZoom'];
+		}
 		if (array_key_exists('cache',$config)) {
 			$cache = $config['cache'];
 			if (array_key_exists('http',$cache)) {
@@ -63,27 +69,35 @@ class staticMapLiteEx {
 	
 	public function parseParams(){
 
-		// get zoom from request
-		$this->zoom = @$this->request['zoom']?intval($this->request['zoom']):0;
-		if($this->zoom>18)$this->zoom = 18;
-		
-		// get lat and lon from request
-		list($this->lat,$this->lon) = explode(',',$this->request['center']);
-		$this->lat = floatval($this->lat);
-		$this->lon = floatval($this->lon);
-		
-		// get zoom from request
-		if(@$this->request['size']){
-			list($this->width, $this->height) = explode('x',$this->request['size']);
-			$this->width = intval($this->width);
-			$this->height = intval($this->height);
-		}
 		if(@$this->request['markers']){
 			$markers = preg_split('/%7C|\|/',$this->request['markers']);
+			$this->markerBox = array(
+				'lat' => array(
+					'min' => PHP_INT_MAX,
+					'max' => -PHP_INT_MAX,
+				),
+				'lon' => array(
+					'min' => PHP_INT_MAX,
+					'max' => -PHP_INT_MAX,
+				)
+			);
 			foreach($markers as $marker){
 				list($markerLat, $markerLon, $markerImage) = explode(',',$marker);
 				$markerLat = floatval($markerLat);
 				$markerLon = floatval($markerLon);
+				if ($this->markerBox['lat']['min'] > $markerLat) {
+					$this->markerBox['lat']['min'] = $markerLat;
+				}
+				if ($this->markerBox['lat']['max'] < $markerLat) {
+					$this->markerBox['lat']['max'] = $markerLat;
+				}
+				if ($this->markerBox['lon']['min'] > $markerLon) {
+					$this->markerBox['lon']['min'] = $markerLon;
+				}
+				if ($this->markerBox['lon']['max'] < $markerLon) {
+					$this->markerBox['lon']['max'] = $markerLon;
+				}
+
 				$markerImage = basename($markerImage);
 				$this->markers[$markerLat . $markerLon .$markerImage] = array(
 					'lat'=>$markerLat,
@@ -91,11 +105,52 @@ class staticMapLiteEx {
 					'image'=>$markerImage
 				);
 			}
+			$this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2; 
+			$this->markerBox['lon']['center'] = ($this->markerBox['lon']['min'] + $this->markerBox['lon']['max']) / 2;
+			$this->markerBox['lat']['size'] = $this->markerBox['lat']['max'] - $this->markerBox['lat']['min']; 
+			$this->markerBox['lon']['size'] = $this->markerBox['lon']['max'] - $this->markerBox['lon']['min']; 
 			krsort($this->markers);
 		}
+
+		if (@$this->request['center']) {
+			// get lat and lon from request
+			list($this->lat,$this->lon) = explode(',',$this->request['center']);
+			$this->lat = floatval($this->lat);
+			$this->lon = floatval($this->lon);
+		} else if (count($this->markers) && $this->minZoom !== null && $this->maxZoom !== null && $this->minZoom <= $this->maxZoom) {
+			list($this->lat,$this->lon,$this->zoom) = $this->getCenterFromMarkers($this->markerBox, $this->width, $this->height, $this->maxZoom, $this->minZoom);
+		}
+
+		// get zoom from request
+		$this->zoom = @$this->request['zoom']?intval($this->request['zoom']):$this->zoom;
+		if($this->zoom>18)$this->zoom = 18;
+
+		// get size from request
+		if(@$this->request['size']){
+			list($this->width, $this->height) = explode('x',$this->request['size']);
+			$this->width = intval($this->width);
+			$this->height = intval($this->height);
+		}
+
 		if(@$this->request['maptype']){
 			if(array_key_exists($this->request['maptype'],$this->tileSrcUrl)) $this->maptype = $this->request['maptype'];
 		}
+	}
+
+	protected function getCenterFromMarkers($markerBox, $width, $height, $maxZoom, $minZoom) {
+		$zoom = $maxZoom;
+		$latCorrection = 360 * cos(deg2rad($this->markerBox['lat']['center']));
+		for( ; $zoom >= $minZoom; $zoom--) {
+			$degreesWidth = $width * 360 / (pow(2,($zoom+8)));
+			// for latitude, we need to correct (otherwise calculation would be correct on the equator only)
+			$latDegreesPerPixel = $latCorrection / (pow(2,($zoom+8)));
+			$degreesHeight = $latDegreesPerPixel * $height;
+			if ($degreesWidth >= $markerBox['lon']['size'] && $degreesHeight >= $markerBox['lat']['size']) {
+				break;
+			}
+		}
+
+		return array($markerBox['lat']['center'],$markerBox['lon']['center'],$zoom);
 	}
 
 	public function lonToTile($long, $zoom){
