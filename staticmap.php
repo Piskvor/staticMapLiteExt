@@ -9,7 +9,7 @@ $map = new staticMapLiteEx(array(
                             /* add your own sources as you see fit */
                             'mapSources' => array(
 	                            'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png',
-	                            'osmarenderer' => 'http://c.tah.openstreetmap.org/Tiles/tile/{Z}/{X}/{Y}.png',
+	                            'example' => 'http://example.com/some/path/{Z}/{X}/{Y}.png', /* this is obviously an example, - {Z} is zoom level, {X} corresponds to longitude (East to West), {Y} corresponds to latitude (North to South)
                             ),
 
                             'cache' => array(
