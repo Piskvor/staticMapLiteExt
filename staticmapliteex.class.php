@@ -69,6 +69,13 @@ class staticMapLiteEx {
 	
 	public function parseParams(){
 
+		// get size from request
+		if(@$this->request['size']){
+			list($this->width, $this->height) = explode('x',$this->request['size']);
+			$this->width = intval($this->width);
+			$this->height = intval($this->height);
+		}
+
 		if(@$this->request['markers']){
 			$markers = preg_split('/%7C|\|/',$this->request['markers']);
 			$this->markerBox = array(
@@ -107,8 +114,8 @@ class staticMapLiteEx {
 			}
 			$this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2; 
 			$this->markerBox['lon']['center'] = ($this->markerBox['lon']['min'] + $this->markerBox['lon']['max']) / 2;
-			$this->markerBox['lat']['size'] = $this->markerBox['lat']['max'] - $this->markerBox['lat']['min']; 
-			$this->markerBox['lon']['size'] = $this->markerBox['lon']['max'] - $this->markerBox['lon']['min']; 
+			$this->markerBox['lat']['size'] = $this->markerBox['lat']['max'] - $this->markerBox['lat']['min'];
+			$this->markerBox['lon']['size'] = $this->markerBox['lon']['max'] - $this->markerBox['lon']['min'];
 			krsort($this->markers);
 		}
 
@@ -125,13 +132,6 @@ class staticMapLiteEx {
 		$this->zoom = @$this->request['zoom']?intval($this->request['zoom']):$this->zoom;
 		if($this->zoom>18)$this->zoom = 18;
 
-		// get size from request
-		if(@$this->request['size']){
-			list($this->width, $this->height) = explode('x',$this->request['size']);
-			$this->width = intval($this->width);
-			$this->height = intval($this->height);
-		}
-
 		if(@$this->request['maptype']){
 			if(array_key_exists($this->request['maptype'],$this->tileSrcUrl)) $this->maptype = $this->request['maptype'];
 		}
@@ -139,7 +139,7 @@ class staticMapLiteEx {
 
 	protected function getCenterFromMarkers($markerBox, $width, $height, $maxZoom, $minZoom) {
 		/*
-		 // show marker box on map
+		 // DEBUG: show marker box on map
 		$this->markers[] = array(
 			'lat' => $markerBox['lat']['center'],
 			'lon' => $markerBox['lon']['center'],
@@ -161,6 +161,7 @@ class staticMapLiteEx {
 
 		$zoom = $maxZoom;
 		$latCorrection = 360 * cos(deg2rad($this->markerBox['lat']['center']));
+
 		for( ; $zoom >= $minZoom; $zoom--) {
 			$degreesWidth = $width * 360 / (pow(2,($zoom+8)));
 			// for latitude, we need to correct (otherwise calculation would be correct on the equator only)
@@ -168,7 +169,7 @@ class staticMapLiteEx {
 			$degreesHeight = $latDegreesPerPixel * $height;
 
 			/*
-			 // show degrees on map
+			 // DEBUG: show degrees on map
 			$this->markers[] = array(
 				'lat' => $markerBox['lat']['center'] + $degreesHeight,
 				'lon' => $markerBox['lon']['center'] + $degreesWidth,
