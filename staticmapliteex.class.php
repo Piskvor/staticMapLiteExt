@@ -9,7 +9,7 @@ class staticMapLiteEx {
 
 	protected $ua = 'PHP/staticMapLiteEx 0.03';
 	
-	protected $tileDefaultSrc = 'mapnik';
+	protected $tileDefaultSrc;
 	protected $markerBaseDir = 'images/markers';
 	protected $osmLogo = 'images/osm_logo.png';
 
@@ -38,7 +38,6 @@ class staticMapLiteEx {
 		$this->width = 500;
 		$this->height = 350;
 		$this->markers = array();
-		$this->maptype = $this->tileDefaultSrc;
 		$this->request = $config['request'];
 		$this->requestHeaders = $config['headers'];
 		if (array_key_exists('mapSources',$config)) {
@@ -65,6 +64,9 @@ class staticMapLiteEx {
 				$this->useMapCache = (boolean) $cache['map'];
 			}
 		}
+		$sources = array_keys($this->tileSrcUrl);
+		$this->tileDefaultSrc = $sources[0];
+		$this->maptype = $this->tileDefaultSrc;
 	}
 	
 	public function parseParams(){
