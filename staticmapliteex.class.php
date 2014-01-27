@@ -2,8 +2,10 @@
 
 /**
  * staticMapLite 0.03
- *
  * Copyright 2009 Gerhard Koch
+ *
+ * staticMapLiteEx 0.04
+ * Copyright 2013 Jan Martinec
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +20,6 @@
  * limitations under the License.
  *
  * @author Gerhard Koch <gerhard.koch AT ymail.com>
- *
- * staticMapLiteEx 0.04
- * Copyright 2013 Jan Martinec
  * @author Jan "Piskvor" Martinec <staticMapLiteEx AT martinec.name>
  *
  * USAGE:
@@ -41,6 +40,30 @@ class staticMapLiteEx {
 	protected $tileDefaultSrc;
 	protected $markerBaseDir = 'images/markers';
 	protected $osmLogo = 'images/osm_logo.png';
+
+	protected $markerPrototypes = array(// found at http://www.mapito.net/map-marker-icons.html
+		'lighblue' => array('regex'=>'/^lightblue([0-9]+)$/',
+		                    'extension'=>'.png',
+		                    'shadow'=>false,
+		                    'offsetImage'=>'0,-19',
+		                    'offsetShadow'=>false
+		),
+		// openlayers std markers
+		'ol-marker'=> array('regex'=>'/^ol-marker(|-blue|-gold|-green)+$/',
+		                    'extension'=>'.png',
+		                    'shadow'=>'../marker_shadow.png',
+		                    'offsetImage'=>'-10,-25',
+		                    'offsetShadow'=>'-1,-13'
+		),
+		// taken from http://www.visual-case.it/cgi-bin/vc/GMapsIcons.pl
+		'ylw'=> array('regex'=>'/^(pink|purple|red|ltblu|ylw)-pushpin$/',
+		              'extension'=>'.png',
+		              'shadow'=>'../marker_shadow.png',
+		              'offsetImage'=>'-10,-32',
+		              'offsetShadow'=>'-1,-13'
+		)
+
+	);
 
 	protected $useTileCache = true; // cache tiles instead of always loading from tile servers
 	protected $tileCacheBaseDir = 'cache/tiles';
@@ -140,7 +163,7 @@ class staticMapLiteEx {
 				$this->markers[$markerLat . $markerLon .$markerImage] = array(
 					'lat'=>$markerLat,
 					'lon'=>$markerLon,
-					'image'=>$markerImage
+					'type'=>$markerImage
 				);
 			}
 			$this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2; 
@@ -252,7 +275,14 @@ class staticMapLiteEx {
 		for($x=$startX; $x<=$endX; $x++){
 			for($y=$startY; $y<=$endY; $y++){
 				$url = str_replace(array('{Z}','{X}','{Y}'),array($this->zoom, $x, $y), $this->tileSrcUrl[$this->maptype]);
-				$tileImage = imagecreatefromstring($this->fetchTile($url));
+				$tileData = $this->fetchTile($url);
+				if($tileData){
+					$tileImage = imagecreatefromstring($tileData);
+				} else {
+					$tileImage = imagecreate($this->tileSize,$this->tileSize);
+					$color = imagecolorallocate($tileImage, 255, 255, 255);
+					@imagestring($tileImage,1,127,127,'err',$color);
+				}
 				$destX = ($x-$startX)*$this->tileSize+$this->offsetX;
 				$destY = ($y-$startY)*$this->tileSize+$this->offsetY;
 				imagecopy($this->image, $tileImage, $destX, $destY, 0, 0, $this->tileSize, $this->tileSize);
@@ -266,23 +296,67 @@ class staticMapLiteEx {
 		foreach($this->markers as $marker){
 			$markerLat = $marker['lat'];
 			$markerLon = $marker['lon'];
-			$markerImage = $marker['image'];
-			$markerIndex++;
-			$markerFilename = $markerImage?(file_exists($this->markerBaseDir.'/'.$markerImage.".png")?$markerImage:'lightblue'.$markerIndex):'lightblue'.$markerIndex;
-			if(file_exists($this->markerBaseDir.'/'.$markerFilename.".png")){
-				$markerImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerFilename.".png");
-			} else {
-				$markerImg = imagecreatefrompng($this->markerBaseDir.'/lightblue1.png');				
+			$markerType = $marker['type'];
+			// clear variables from previous loops
+			$markerFilename = '';
+			$markerShadow = '';
+			$matches = false;
+			// check for marker type, get settings from markerPrototypes
+			if($markerType){
+				foreach($this->markerPrototypes as $markerPrototype){
+					if(preg_match($markerPrototype['regex'],$markerType,$matches)){
+						$markerFilename = $matches[0].$markerPrototype['extension'];
+						if($markerPrototype['offsetImage']){
+							list($markerImageOffsetX, $markerImageOffsetY)  = explode(",",$markerPrototype['offsetImage']);
+						}
+						$markerShadow = $markerPrototype['shadow'];
+						if($markerShadow){
+							list($markerShadowOffsetX, $markerShadowOffsetY)  = explode(",",$markerPrototype['offsetShadow']);
+						}
+					}
+				}
 			}
+
+			// check required files or set default
+			if($markerFilename == '' || !file_exists($this->markerBaseDir.'/'.$markerFilename)){
+				$markerIndex++;
+				$markerFilename = 'lightblue'.$markerIndex.'.png';
+				$markerImageOffsetX = 0;
+				$markerImageOffsetY = -19;
+			} else {
+				$markerImageOffsetX = 0;
+				$markerImageOffsetY = 0;
+
+			}
+
+			// create img resource
+			if(file_exists($this->markerBaseDir.'/'.$markerFilename)){
+				$markerImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerFilename);
+			} else {
+				$markerImg = imagecreatefrompng($this->markerBaseDir.'/lightblue1.png');
+			}
+
+			// check for shadow + create shadow recource
+			if($markerShadow && file_exists($this->markerBaseDir.'/'.$markerShadow)){
+				$markerShadowImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerShadow);
+			}
+
+			// calc position
 			$destX = floor(($this->width/2)-$this->tileSize*($this->centerX-$this->lonToTile($markerLon, $this->zoom)));
 			$destY = floor(($this->height/2)-$this->tileSize*($this->centerY-$this->latToTile($markerLat, $this->zoom)));
-			$destY = $destY - imagesy($markerImg);
-			$destX = $destX - (imagesx($markerImg) / 2);
 
-			imagecopy($this->image, $markerImg, $destX, $destY, 0, 0, imagesx($markerImg), imagesy($markerImg));
-		
-	};
-}
+			// copy shadow on basemap
+			if($markerShadow && $markerShadowImg){
+				imagecopy($this->image, $markerShadowImg, $destX+intval($markerShadowOffsetX), $destY+intval($markerShadowOffsetY),
+				          0, 0, imagesx($markerShadowImg), imagesy($markerShadowImg));
+			}
+
+			// copy marker on basemap above shadow
+			imagecopy($this->image, $markerImg, $destX+intval($markerImageOffsetX), $destY+intval($markerImageOffsetY),
+			          0, 0, imagesx($markerImg), imagesy($markerImg));
+
+		};
+	}
 
 
 
