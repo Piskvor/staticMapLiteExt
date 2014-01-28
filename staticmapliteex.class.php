@@ -301,6 +301,9 @@ class staticMapLiteEx {
 			$markerFilename = '';
 			$markerShadow = '';
 			$matches = false;
+			
+			$markerImageOffsetX = 0;
+			$markerImageOffsetY = 0;
 			// check for marker type, get settings from markerPrototypes
 			if($markerType){
 				foreach($this->markerPrototypes as $markerPrototype){
@@ -323,10 +326,6 @@ class staticMapLiteEx {
 				$markerFilename = 'lightblue'.$markerIndex.'.png';
 				$markerImageOffsetX = 0;
 				$markerImageOffsetY = -19;
-			} else {
-				$markerImageOffsetX = 0;
-				$markerImageOffsetY = 0;
-
 			}
 
 			// create img resource
