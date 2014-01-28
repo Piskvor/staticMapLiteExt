@@ -138,7 +138,7 @@
 		
 		function getStaticMapImageUrl(){
 			output = 'staticmap.php?';
-			if(map.maptype != 'mapnik') output += "maptype="+map.maptype+"&";
+			/* if(map.maptype != 'mapnik') */ output += "maptype="+map.maptype+"&";
 			mapCenter = map.getCenter();
 			centerLonLat = mapCenter.transform(map.getProjectionObject(),new OpenLayers.Projection("EPSG:4326"));
             if (!autocenter.checked) {
