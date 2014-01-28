@@ -27,7 +27,7 @@ $map = new staticMapLiteEx(array(
                             'ua' => 'staticMapLiteEx/0.03',
 
                             /* max and min zoom only needed for "autozoom to markers" */
-                            'minZoom' => 12,
+                            'minZoom' => 1,
                             'maxZoom' => 18
                            ));
 echo $map->showMap();
