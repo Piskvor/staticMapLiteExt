@@ -84,6 +84,9 @@ class staticMapLiteEx {
 	protected $centerX, $centerY, $offsetX, $offsetY;
 
 	public function __construct($config){
+		if (!$this->checkRequiredFunctions()) {
+			throw new staticMapLiteException('Required library not loaded: curl');
+		}
 		$this->zoom = 0;
 		$this->lat = 0;
 		$this->lon = 0;
@@ -417,6 +420,10 @@ class staticMapLiteEx {
 
 	}
 
+	public function checkRequiredFunctions() {
+		return (function_exists('curl_init') && function_exists('curl_setopt') && function_exists('curl_exec') && function_exists('curl_close'));
+	}
+
 	public function copyrightNotice(){
 			$logoImg = imagecreatefrompng($this->osmLogo);
 			imagecopy($this->image, $logoImg, imagesx($this->image)-imagesx($logoImg), imagesy($this->image)-imagesy($logoImg), 0, 0, imagesx($logoImg), imagesy($logoImg));
@@ -491,5 +498,9 @@ class staticMapLiteEx {
 			
 		}
 	}
+
+}
+
+class staticMapLiteException extends Exception {
 
 }
