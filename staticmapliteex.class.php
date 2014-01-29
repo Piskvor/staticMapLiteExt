@@ -407,7 +407,7 @@ class staticMapLiteEx {
 		if($this->useTileCache && ($cached = $this->checkTileCache($url))) return $cached;
 		$ch = curl_init(); 
 		curl_setopt($ch, CURLOPT_TIMEOUT, 5); // time out faster
-		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3); // time out faster
+		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // time out faster
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($ch, CURLOPT_USERAGENT, $this->ua);
 		curl_setopt($ch, CURLOPT_URL, $url); 
