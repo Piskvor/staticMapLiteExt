@@ -17,7 +17,7 @@ a:visited{color:#1474CA;}
 a.pending{color:#c174a0;}
 a:hover{text-decoration:underline;}
 a img{border:none;}
-#buttons input, #buttons textarea{font-size:94%;border:1px solid #999;background:#fff;color:#666;outline:0.2em solid #eee;padding:0px;line-height:1.2;margin:0.5em;vertical-align:middle;}
+#buttons input, #buttons textarea{font-size:94%;border:1px solid #999;background:#fff;color:#666;outline:0.2em solid #eee;padding:5px;line-height:1.2;margin:0.5em;vertical-align:middle;}
 input {padding: 2px 5px;}
 textarea{display:block;margin:0.5em 0;width:100%;}
 pre, textarea{outline:0.4em solid #eee;padding:0.5em;margin:0.5em;border:1px solid #e0d78a;background:#fef4a4;color:#644e22;}

@@ -24,15 +24,28 @@
 
 		var map, layer, autocenter;
 		var perma = "";
+        var vector = new OpenLayers.Layer.Vector('vector');
+        var firstGeolocation = true;
 
 
 		/* init OL, map, dragFeature */
 		function initOpenLayers() {
-			map = new OpenLayers.Map('map', {
+            var geolocate = new OpenLayers.Control.Geolocate({
+                bind: false,
+                geolocationOptions: {
+                    enableHighAccuracy: false,
+                    maximumAge: 0,
+                    timeout: 7000
+                }
+            });
+
+            map = new OpenLayers.Map('map', {
 				controls: [
 					new OpenLayers.Control.Attribution(),
                     new OpenLayers.Control.Navigation(),
-					new OpenLayers.Control.PanZoomBar()]
+					new OpenLayers.Control.PanZoomBar(),
+                        geolocate
+                ]
 			});           
 			markers = new OpenLayers.Layer.Vector(
 				"Markers",
@@ -49,6 +62,45 @@
 					rendererOptions: {yOrdering: true}
 				}
 			);
+
+            geolocate.events.register("locationupdated",geolocate,function(e) {
+                vector.removeAllFeatures();
+                var circle = new OpenLayers.Feature.Vector(
+                        OpenLayers.Geometry.Polygon.createRegularPolygon(
+                                new OpenLayers.Geometry.Point(e.point.x, e.point.y),
+                                e.position.coords.accuracy/2,
+                                40,
+                                0
+                        ),
+                        {},
+                        {}
+                );
+                vector.addFeatures([
+                    new OpenLayers.Feature.Vector(
+                            e.point,
+                            {},
+                            {}
+                    ),
+                    circle
+                ]);
+                if (firstGeolocation) {
+                    map.zoomToExtent(vector.getDataExtent());
+                    firstGeolocation = false;
+                    this.bind = true;
+                }
+            });
+
+            geolocate.events.register("locationfailed",this,function() {
+                OpenLayers.Console.log('Location detection failed');
+            });
+
+            document.getElementById('locate').onclick = function() {
+                vector.removeAllFeatures();
+                geolocate.deactivate();
+                geolocate.watch = false;
+                firstGeolocation = true;
+                geolocate.activate();
+            };
 
 			mapnik = new OpenLayers.Layer.OSM("Mapnik","http://tile.openstreetmap.org/${z}/${x}/${y}.png");
 
@@ -213,7 +265,7 @@
 				<hr />
 				<div id="map" class="smallmap drop" style="-moz-user-select: none"></div>
 				<div id="buttons" style="-moz-user-select: none">
-				<h3>makers</h3>
+				<h3>markers</h3>
 				<input style="margin-left:0;" type="button" onclick="markers.removeFeatures(markers.features); makeStaticCodeSnip();" value="clear all markers" />
 				<h4 style="margin:0">click or drag to add</h4>
 				<img style="margin-left:0;" class="draggable" src="../images/markers/lightblue1.png" onclick="mark(this);" rel="lightblue1|17|19|-2|-20" />
@@ -236,6 +288,8 @@
 	-->			<h3>map size</h3>
 				<input style="margin-left:0;" type="text" name="width" id="width" value="500" size="5" onchange="makeStaticCodeSnip()" />x
 				<input type="text" name="height" id="height" value="350" size="5"  onchange="makeStaticCodeSnip()" />px
+				<h3>find me on map</h3>
+                    <input type="button" value="get my current location" id="locate" />
 				<h3>show map</h3>
 				<input style="margin-left:0; background: #eee; padding: 5px 10px" type="button" onclick="showStaticInNewWindow();" value="show map in new window" />
 					</div>
