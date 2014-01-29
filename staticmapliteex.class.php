@@ -35,7 +35,7 @@ class staticMapLiteEx {
 		'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png'
 	);
 
-	protected $ua = 'PHP/staticMapLiteEx 0.03';
+	protected $ua = 'PHP/staticMapLiteEx 0.04';
 	
 	protected $tileDefaultSrc;
 	protected $markerBaseDir = 'images/markers';

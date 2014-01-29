@@ -24,7 +24,7 @@ $map = new staticMapLiteEx(array(
                             ),
 
                             /* user agent to send in map tile requests */
-                            'ua' => 'staticMapLiteEx/0.03',
+                            'ua' => 'staticMapLiteEx/0.04',
 
                             /* max and min zoom only needed for "autozoom to markers" */
                             'minZoom' => 1,
