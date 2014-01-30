@@ -2,6 +2,23 @@
 
 require_once(__DIR__ . '/staticmapliteex.class.php');
 
+/*
+  All of the config parameters are optional - it is even possible to instantiate the class without any arguments at all:
+   $map = new staticMapLiteEx();
+  Defaults:
+  'request' => $_GET
+  'headers' => $_SERVER
+  'mapSources' => array(
+		'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png'
+  );
+  'cache' => array(
+	'http' => true,
+	'tile' => true,
+	'map' => true
+  )
+  'ua' => 'staticMapLiteEx/0.04',
+
+ */
 $map = new staticMapLiteEx(array(
                             'request' => $_GET,
                             'headers' => $_SERVER,
