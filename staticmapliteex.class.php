@@ -36,7 +36,7 @@ class staticMapLiteEx {
 	);
 
 	protected $ua = 'PHP/staticMapLiteEx 0.04'; // default User-Agent
-	
+
 	protected $tileDefaultSrc;
 	protected $markerBaseDir = 'images/markers'; // directory containing markers
 	protected $osmLogo = 'images/osm_logo.png'; // OSM logo overlay
@@ -77,7 +77,7 @@ class staticMapLiteEx {
 	protected $mapCacheID = '';
 	protected $mapCacheFile = '';
 	protected $mapCacheExtension = 'png'; // currently the only supported filetype is PNG; .png is its usual file extension
-	
+
 	protected $zoom; // see http://wiki.openstreetmap.org/wiki/Zoom_levels
 	protected $lat, $lon, $width, $height, $image, $maptype;
 
@@ -85,7 +85,11 @@ class staticMapLiteEx {
 	protected $centerX, $centerY, $offsetX, $offsetY;
 
 	/** @throws staticMapLiteException */
-	public function __construct($config){
+	public function __construct($config = null){
+		// "no config, just give me the defaults"
+		if (!$config) {
+			$config = array();
+		}
 		// bail if we can't fetch HTTP resources
 		if (!$this->checkCurlFunctions()) {
 			throw new staticMapLiteException('Required library not loaded: curl');
@@ -139,7 +143,7 @@ class staticMapLiteEx {
 		$this->tileDefaultSrc = $sources[0];
 		$this->maptype = $this->tileDefaultSrc;
 	}
-	
+
 	public function parseParams(){
 
 		// get size from request
@@ -192,7 +196,7 @@ class staticMapLiteEx {
 			}
 
 			// these are useful for auto-zoom
-			$this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2; 
+			$this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2;
 			$this->markerBox['lon']['center'] = ($this->markerBox['lon']['min'] + $this->markerBox['lon']['max']) / 2;
 			$this->markerBox['lat']['size'] = $this->markerBox['lat']['max'] - $this->markerBox['lat']['min'];
 			$this->markerBox['lon']['size'] = $this->markerBox['lon']['max'] - $this->markerBox['lon']['min'];
@@ -340,7 +344,7 @@ class staticMapLiteEx {
 			$markerFilename = '';
 			$markerShadow = '';
 			$matches = false;
-			
+
 			$markerImageOffsetX = 0;
 			$markerImageOffsetY = 0;
 			// check for marker type, get settings from markerPrototypes
@@ -406,14 +410,14 @@ class staticMapLiteEx {
 			return '';
 		}
 	}
-	
+
 	public function checkMapCache(){
 		$this->mapCacheID = md5($this->serializeParams());
 		$filename = $this->mapCacheIDToFilename();
 		return (file_exists($filename));
 	}
 
-	public function serializeParams(){		
+	public function serializeParams(){
 		return join("&",array($this->zoom,$this->lat,$this->lon,$this->width,$this->height, serialize($this->markers),$this->maptype));
 	}
 
@@ -434,16 +438,16 @@ class staticMapLiteEx {
 		$this->mkdir_recursive(dirname($filename),0777);
 		file_put_contents($filename, $data);
 	}
-	
+
 	public function fetchTile($url){
 		if($this->useTileCache && ($cached = $this->checkTileCache($url))) return $cached;
-		$ch = curl_init(); 
+		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_TIMEOUT, 5); // time out faster
 		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // time out faster - but not too fast
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($ch, CURLOPT_USERAGENT, $this->ua);
-		curl_setopt($ch, CURLOPT_URL, $url); 
-		$tile = curl_exec($ch); 
+		curl_setopt($ch, CURLOPT_URL, $url);
+		$tile = curl_exec($ch);
 		curl_close($ch);
 		if($tile && $this->useTileCache){ // cache if result
 			$this->writeTileToCache($url,$tile);
@@ -464,9 +468,9 @@ class staticMapLiteEx {
 		// add OSM logo
 		$logoImg = imagecreatefrompng($this->osmLogo);
 		imagecopy($this->image, $logoImg, imagesx($this->image)-imagesx($logoImg), imagesy($this->image)-imagesy($logoImg), 0, 0, imagesx($logoImg), imagesy($logoImg));
-		
+
 	}
-	
+
 	public function sendHeader($fname = null,$etag = null){
 		header('Content-Type: image/png'); // it's an image
 		header("Pragma: public"); // ancient IE hack
@@ -485,7 +489,7 @@ class staticMapLiteEx {
 	}
 
 	public function makeMap(){
-		$this->initCoords();		
+		$this->initCoords();
 		$this->createBaseMap();
 		if(count($this->markers))$this->placeMarkers();
 		if($this->osmLogo) $this->copyrightNotice();
@@ -540,8 +544,8 @@ class staticMapLiteEx {
 			// no cache, make map, send headers and deliver png
 			$this->makeMap();
 			$this->sendHeader(null,$etag);
-			return imagepng($this->image);		
-			
+			return imagepng($this->image);
+
 		}
 	}
 
