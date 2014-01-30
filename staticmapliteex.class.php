@@ -30,16 +30,16 @@
 
 class staticMapLiteEx {
 
-	protected $tileSize = 256;
+	protected $tileSize = 256; // most tileservers use 256; don't change this if you are not absolutely certain what it does
 	protected $tileSrcUrl = array(
-		'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png'
+		'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png' // the "usual" OpenStreetMap tiles
 	);
 
-	protected $ua = 'PHP/staticMapLiteEx 0.04';
+	protected $ua = 'PHP/staticMapLiteEx 0.04'; // default User-Agent
 	
 	protected $tileDefaultSrc;
-	protected $markerBaseDir = 'images/markers';
-	protected $osmLogo = 'images/osm_logo.png';
+	protected $markerBaseDir = 'images/markers'; // directory containing markers
+	protected $osmLogo = 'images/osm_logo.png'; // OSM logo overlay
 
 	protected $markerPrototypes = array(// found at http://www.mapito.net/map-marker-icons.html
 		'lighblue' => array('regex'=>'/^lightblue([0-9]+)$/',
@@ -48,7 +48,7 @@ class staticMapLiteEx {
 		                    'offsetImage'=>'0,-19',
 		                    'offsetShadow'=>false
 		),
-		// openlayers std markers
+		// openlayers standard markers
 		'ol-marker'=> array('regex'=>'/^ol-marker(|-blue|-gold|-green)+$/',
 		                    'extension'=>'.png',
 		                    'shadow'=>'../marker_shadow.png',
@@ -65,28 +65,32 @@ class staticMapLiteEx {
 
 	);
 
-	protected $useTileCache = true; // cache tiles instead of always loading from tile servers
-	protected $tileCacheBaseDir = 'cache/tiles';
+	protected $useTileCache = true; // cache tiles instead of always loading from tile servers - cached tiles might get stale in the horizon of months
+	protected $tileCacheBaseDir = 'cache/tiles'; // tile cache main directory
 
-	protected $useMapCache = true; // cache resulting maps instead of always regenerating
-	protected $mapCacheBaseDir = 'cache/maps';
+	protected $useMapCache = true; // cache resulting maps (with markers!) instead of always regenerating from tiles
+	protected $mapCacheBaseDir = 'cache/maps'; // maps cache main directory
 
 	protected $useHTTPCache = true; // cache image in browser, using HTTP caching headers
-	protected $expireDays = 14;
+	protected $expireDays = 14; // days to keep image as fresh, via Expires header
 
 	protected $mapCacheID = '';
 	protected $mapCacheFile = '';
-	protected $mapCacheExtension = 'png';
+	protected $mapCacheExtension = 'png'; // currently the only supported filetype is PNG; .png is its usual file extension
 	
-	protected $zoom, $lat, $lon, $width, $height, $image, $maptype;
+	protected $zoom; // see http://wiki.openstreetmap.org/wiki/Zoom_levels
+	protected $lat, $lon, $width, $height, $image, $maptype;
 
 	protected $markers, $markerBox, $minZoom, $maxZoom;
 	protected $centerX, $centerY, $offsetX, $offsetY;
 
+	/** @throws staticMapLiteException */
 	public function __construct($config){
+		// bail if we can't fetch HTTP resources
 		if (!$this->checkCurlFunctions()) {
 			throw new staticMapLiteException('Required library not loaded: curl');
 		}
+		// bail if we can't work with images
 		if (!$this->checkGdFunctions()) {
 			throw new staticMapLiteException('Required library not loaded: gd');
 		}
@@ -96,20 +100,27 @@ class staticMapLiteEx {
 		$this->width = 500;
 		$this->height = 350;
 		$this->markers = array();
-		$this->request = $config['request'];
-		$this->requestHeaders = $config['headers'];
+
+		$this->request = $config['request']; // this is usually $_GET
+		$this->requestHeaders = $config['headers']; // this is usually $_SERVER
+
+		// set map sources
 		if (array_key_exists('mapSources',$config)) {
 			$this->tileSrcUrl = $config['mapSources'];
 		}
+		// set User-Agent
 		if (array_key_exists('ua',$config)) {
 			$this->ua = $config['ua'];
 		}
+
+		// min/max zoom to use for auto-zooming
 		if (array_key_exists('minZoom',$config)) {
 			$this->minZoom = $config['minZoom'];
 		}
 		if (array_key_exists('maxZoom',$config)) {
 			$this->maxZoom = $config['maxZoom'];
 		}
+		// configure various caching options
 		if (array_key_exists('cache',$config)) {
 			$cache = $config['cache'];
 			if (array_key_exists('http',$cache)) {
@@ -122,6 +133,8 @@ class staticMapLiteEx {
 				$this->useMapCache = (boolean) $cache['map'];
 			}
 		}
+
+		// set the first source to be the default
 		$sources = array_keys($this->tileSrcUrl);
 		$this->tileDefaultSrc = $sources[0];
 		$this->maptype = $this->tileDefaultSrc;
@@ -136,8 +149,10 @@ class staticMapLiteEx {
 			$this->height = intval($this->height);
 		}
 
+		// get markers
 		if(@$this->request['markers']){
 			$markers = preg_split('/%7C|\|/',$this->request['markers']);
+
 			$this->markerBox = array(
 				'lat' => array(
 					'min' => PHP_INT_MAX,
@@ -148,10 +163,13 @@ class staticMapLiteEx {
 					'max' => -PHP_INT_MAX,
 				)
 			);
+
 			foreach($markers as $marker){
 				list($markerLat, $markerLon, $markerImage) = explode(',',$marker);
 				$markerLat = floatval($markerLat);
 				$markerLon = floatval($markerLon);
+
+				// get minimum/maximum for all the markers
 				if ($this->markerBox['lat']['min'] > $markerLat) {
 					$this->markerBox['lat']['min'] = $markerLat;
 				}
@@ -172,10 +190,14 @@ class staticMapLiteEx {
 					'type'=>$markerImage
 				);
 			}
+
+			// these are useful for auto-zoom
 			$this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2; 
 			$this->markerBox['lon']['center'] = ($this->markerBox['lon']['min'] + $this->markerBox['lon']['max']) / 2;
 			$this->markerBox['lat']['size'] = $this->markerBox['lat']['max'] - $this->markerBox['lat']['min'];
 			$this->markerBox['lon']['size'] = $this->markerBox['lon']['max'] - $this->markerBox['lon']['min'];
+
+			// together with the array keys, this ensures that southernmost keys are the last (therefore on top)
 			krsort($this->markers);
 		}
 
@@ -185,13 +207,18 @@ class staticMapLiteEx {
 			$this->lat = floatval($this->lat);
 			$this->lon = floatval($this->lon);
 		} else if (count($this->markers) && $this->minZoom !== null && $this->maxZoom !== null && $this->minZoom <= $this->maxZoom) {
+			// if we have markers but not center, find the center and zoom from marker position(s)
 			list($this->lat,$this->lon,$this->zoom) = $this->getCenterFromMarkers($this->markerBox, $this->width - 20, $this->height - 20, $this->maxZoom, $this->minZoom);
 		}
 
 		// get zoom from request
 		$this->zoom = @$this->request['zoom']?intval($this->request['zoom']):$this->zoom;
-		if($this->zoom>18)$this->zoom = 18;
+		// set maximum zoom
+		if($this->zoom > 18) {
+			$this->zoom = 18;
+		}
 
+		// set map type
 		if(@$this->request['maptype']){
 			if(array_key_exists($this->request['maptype'],$this->tileSrcUrl)) $this->maptype = $this->request['maptype'];
 		}
@@ -199,7 +226,7 @@ class staticMapLiteEx {
 
 	protected function getCenterFromMarkers($markerBox, $width, $height, $maxZoom, $minZoom) {
 		/*
-		 // DEBUG: show marker box on map
+		// DEBUG: uncomment the above to show marker box on map
 		$this->markers[] = array(
 			'lat' => $markerBox['lat']['center'],
 			'lon' => $markerBox['lon']['center'],
@@ -219,17 +246,21 @@ class staticMapLiteEx {
 		);
 		// */
 
+		// start from $maxZoom and work outwards from there
 		$zoom = $maxZoom;
+		// for latitude, we need to correct (otherwise calculation would be correct on the equator only) - see http://wiki.openstreetmap.org/wiki/File:Tissot_mercator.png
 		$latCorrection = 360 * cos(deg2rad($this->markerBox['lat']['center']));
 
 		for( ; $zoom >= $minZoom; $zoom--) {
+			// how many degrees wide is the image? - longitude doesn't need correction
 			$degreesWidth = $width * 360 / (pow(2,($zoom+8)));
-			// for latitude, we need to correct (otherwise calculation would be correct on the equator only)
+
+			// how many degrees high is the image? - apply the latitude correction from above
 			$latDegreesPerPixel = $latCorrection / (pow(2,($zoom+8)));
 			$degreesHeight = $latDegreesPerPixel * $height;
 
 			/*
-			 // DEBUG: show degrees on map
+			// DEBUG: uncomment the above to show zoom levels on map
 			$this->markers[] = array(
 				'lat' => $markerBox['lat']['center'] + $degreesHeight,
 				'lon' => $markerBox['lon']['center'] + $degreesWidth,
@@ -243,6 +274,7 @@ class staticMapLiteEx {
 			// */
 
 			if ($degreesWidth >= $markerBox['lon']['size'] && $degreesHeight >= $markerBox['lat']['size']) {
+				// in this case, all markers will fit into the current zoom
 				break;
 			}
 		}
@@ -298,7 +330,8 @@ class staticMapLiteEx {
 
 
 	public function placeMarkers(){
-		$markerIndex = 0;
+		$markerIndex = 0; // used for auto-numbering markers
+
 		foreach($this->markers as $marker){
 			$markerLat = $marker['lat'];
 			$markerLon = $marker['lon'];
@@ -329,7 +362,7 @@ class staticMapLiteEx {
 			// check required files or set default
 			if($markerFilename == '' || !file_exists($this->markerBaseDir.'/'.$markerFilename)){
 				$markerIndex++;
-				$markerFilename = 'lightblue'.$markerIndex.'.png';
+				$markerFilename = 'lightblue'.$markerIndex.'.png'; // auto-number markers
 				$markerImageOffsetX = 0;
 				$markerImageOffsetY = -19;
 			}
@@ -341,7 +374,7 @@ class staticMapLiteEx {
 				$markerImg = imagecreatefrompng($this->markerBaseDir.'/lightblue1.png');
 			}
 
-			// calc position
+			// calculate pixel position from geographical location
 			$destX = floor(($this->width/2)-$this->tileSize*($this->centerX-$this->lonToTile($markerLon, $this->zoom)));
 			$destY = floor(($this->height/2)-$this->tileSize*($this->centerY-$this->latToTile($markerLat, $this->zoom)));
 
@@ -406,13 +439,13 @@ class staticMapLiteEx {
 		if($this->useTileCache && ($cached = $this->checkTileCache($url))) return $cached;
 		$ch = curl_init(); 
 		curl_setopt($ch, CURLOPT_TIMEOUT, 5); // time out faster
-		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // time out faster
+		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // time out faster - but not too fast
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($ch, CURLOPT_USERAGENT, $this->ua);
 		curl_setopt($ch, CURLOPT_URL, $url); 
 		$tile = curl_exec($ch); 
 		curl_close($ch);
-		if($tile && $this->useTileCache){
+		if($tile && $this->useTileCache){ // cache if result
 			$this->writeTileToCache($url,$tile);
 		}
 		return $tile;
@@ -428,16 +461,18 @@ class staticMapLiteEx {
 	}
 
 	public function copyrightNotice(){
-			$logoImg = imagecreatefrompng($this->osmLogo);
-			imagecopy($this->image, $logoImg, imagesx($this->image)-imagesx($logoImg), imagesy($this->image)-imagesy($logoImg), 0, 0, imagesx($logoImg), imagesy($logoImg));
+		// add OSM logo
+		$logoImg = imagecreatefrompng($this->osmLogo);
+		imagecopy($this->image, $logoImg, imagesx($this->image)-imagesx($logoImg), imagesy($this->image)-imagesy($logoImg), 0, 0, imagesx($logoImg), imagesy($logoImg));
 		
 	}
 	
 	public function sendHeader($fname = null,$etag = null){
-		header('Content-Type: image/png');
-		$expires = (60*60*24)*$this->expireDays;
-		header("Pragma: public");
+		header('Content-Type: image/png'); // it's an image
+		header("Pragma: public"); // ancient IE hack
+
 		if ($this->useHTTPCache) {
+			$expires = (60*60*24)*$this->expireDays;
 			header("Cache-Control: maxage=".$expires);
 			header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
 			if ($fname != null && file_exists($fname)) {
@@ -457,9 +492,12 @@ class staticMapLiteEx {
 	}
 
 	public function showMap(){
-		$etag = md5($this->serializeParams());
+		$etag = md5($this->serializeParams()); // which now means that "same ETag" means "same parameters" (a hash collision is unlikely under these circumstances)
+
+		// if we have sent an ETag to the browser previously, this is how we get it back
 		if ($this->useHTTPCache && array_key_exists('HTTP_IF_NONE_MATCH',$this->requestHeaders)) {
 			if ($etag == $this->requestHeaders['HTTP_IF_NONE_MATCH']) {
+				// No changes, don't send anything - the browser already has it.
 				header('HTTP/1.1 304 Not Modified');
 				return '';
 			}
@@ -468,28 +506,33 @@ class staticMapLiteEx {
 		if($this->useMapCache){
 			// use map cache, so check cache for map
 			if(!$this->checkMapCache()){
-				// map is not in cache, needs to be built
+				// map is not in cache, needs to be built..
 				$this->makeMap();
+				// ...and stored to disk, if possible
 				$this->mkdir_recursive(dirname($this->mapCacheIDToFilename()),0777);
 				imagepng($this->image,$this->mapCacheIDToFilename(),9);
 				if(file_exists($this->mapCacheIDToFilename())){
-					$this->sendHeader($this->mapCacheIDToFilename(),$etag);
+					// we have a file, so we can check for its modification date later; but we also send the ETag
+					$this->sendHeader($this->mapCacheIDToFilename(), $etag);
 					return file_get_contents($this->mapCacheIDToFilename());
 				} else {
+					// map is not stored in disk cache, so we only send the ETag
 					$this->sendHeader(null,$etag);
 					return imagepng($this->image);
 				}
 			} else {
-				// map is in cache
+				// map is in our disk cache
 				if ($this->useHTTPCache && array_key_exists('HTTP_IF_MODIFIED_SINCE',$this->requestHeaders)) {
 					$request_time = strtotime($this->requestHeaders['HTTP_IF_MODIFIED_SINCE']);
 					$file_time = filemtime($this->mapCacheIDToFilename());
 					if ($request_time >= $file_time) {
+						// the map is already in browser's cache, we don't need to send anything
 						header('HTTP/1.1 304 Not Modified');
 						return '';
 					}
 				}
-				$this->sendHeader($this->mapCacheIDToFilename(),$etag);
+				// we have a file, so we can check for its modification date later; but we also send the ETag
+				$this->sendHeader($this->mapCacheIDToFilename(), $etag);
 				return file_get_contents($this->mapCacheIDToFilename());
 			}
 
@@ -505,5 +548,5 @@ class staticMapLiteEx {
 }
 
 class staticMapLiteException extends Exception {
-
+	// just so that the caller can catch a sane exception type
 }
