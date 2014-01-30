@@ -84,8 +84,11 @@ class staticMapLiteEx {
 	protected $centerX, $centerY, $offsetX, $offsetY;
 
 	public function __construct($config){
-		if (!$this->checkRequiredFunctions()) {
+		if (!$this->checkCurlFunctions()) {
 			throw new staticMapLiteException('Required library not loaded: curl');
+		}
+		if (!$this->checkGdFunctions()) {
+			throw new staticMapLiteException('Required library not loaded: gd');
 		}
 		$this->zoom = 0;
 		$this->lat = 0;
@@ -420,8 +423,12 @@ class staticMapLiteEx {
 
 	}
 
-	public function checkRequiredFunctions() {
+	public function checkCurlFunctions() {
 		return (function_exists('curl_init') && function_exists('curl_setopt') && function_exists('curl_exec') && function_exists('curl_close'));
+	}
+
+	public function checkGdFunctions() {
+		return (function_exists('imagecreatefrompng') && function_exists('imagecopy') && function_exists('imagepng'));
 	}
 
 	public function copyrightNotice(){
