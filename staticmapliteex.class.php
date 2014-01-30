@@ -457,7 +457,7 @@ class staticMapLiteEx {
 	}
 
 	public function showMap(){
-		$etag = md5(var_export($this->request,true));
+		$etag = md5($this->serializeParams());
 		if ($this->useHTTPCache && array_key_exists('HTTP_IF_NONE_MATCH',$this->requestHeaders)) {
 			if ($etag == $this->requestHeaders['HTTP_IF_NONE_MATCH']) {
 				header('HTTP/1.1 304 Not Modified');
@@ -473,7 +473,7 @@ class staticMapLiteEx {
 				$this->mkdir_recursive(dirname($this->mapCacheIDToFilename()),0777);
 				imagepng($this->image,$this->mapCacheIDToFilename(),9);
 				if(file_exists($this->mapCacheIDToFilename())){
-					$this->sendHeader($this->mapCacheIDToFilename());
+					$this->sendHeader($this->mapCacheIDToFilename(),$etag);
 					return file_get_contents($this->mapCacheIDToFilename());
 				} else {
 					$this->sendHeader(null,$etag);
@@ -489,7 +489,7 @@ class staticMapLiteEx {
 						return '';
 					}
 				}
-				$this->sendHeader($this->mapCacheIDToFilename());
+				$this->sendHeader($this->mapCacheIDToFilename(),$etag);
 				return file_get_contents($this->mapCacheIDToFilename());
 			}
 
