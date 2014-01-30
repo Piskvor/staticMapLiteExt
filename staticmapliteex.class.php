@@ -105,6 +105,12 @@ class staticMapLiteEx {
 		$this->height = 350;
 		$this->markers = array();
 
+		if (!array_key_exists('request',$config)) {
+			$config['request'] = $_GET;
+		}
+		if (!array_key_exists('requestHeaders',$config)) {
+			$config['requestHeaders'] = $_SERVER;
+		}
 		$this->request = $config['request']; // this is usually $_GET
 		$this->requestHeaders = $config['headers']; // this is usually $_SERVER
 
