@@ -126,9 +126,13 @@ class staticMapLiteEx {
 		// min/max zoom to use for auto-zooming
 		if (array_key_exists('minZoom',$config)) {
 			$this->minZoom = $config['minZoom'];
+		} else {
+			$this->minZoom = 1;
 		}
 		if (array_key_exists('maxZoom',$config)) {
 			$this->maxZoom = $config['maxZoom'];
+		} else {
+			$this->maxZoom = 18;
 		}
 		// configure various caching options
 		if (array_key_exists('cache',$config)) {
