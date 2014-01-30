@@ -341,22 +341,18 @@ class staticMapLiteEx {
 				$markerImg = imagecreatefrompng($this->markerBaseDir.'/lightblue1.png');
 			}
 
-			// check for shadow + create shadow recource
-			if($markerShadow && file_exists($this->markerBaseDir.'/'.$markerShadow)){
-				$markerShadowImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerShadow);
-			}
-
 			// calc position
 			$destX = floor(($this->width/2)-$this->tileSize*($this->centerX-$this->lonToTile($markerLon, $this->zoom)));
 			$destY = floor(($this->height/2)-$this->tileSize*($this->centerY-$this->latToTile($markerLat, $this->zoom)));
 
-			// copy shadow on basemap
-			if($markerShadow && $markerShadowImg){
+			// check for shadow + create shadow resource
+			if($markerShadow && file_exists($this->markerBaseDir.'/'.$markerShadow)){
+				$markerShadowImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerShadow);
 				imagecopy($this->image, $markerShadowImg, $destX+intval($markerShadowOffsetX), $destY+intval($markerShadowOffsetY),
 				          0, 0, imagesx($markerShadowImg), imagesy($markerShadowImg));
 			}
 
-			// copy marker on basemap above shadow
+			// copy marker to basemap above shadow
 			imagecopy($this->image, $markerImg, $destX+intval($markerImageOffsetX), $destY+intval($markerImageOffsetY),
 			          0, 0, imagesx($markerImg), imagesy($markerImg));
 
