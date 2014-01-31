@@ -74,6 +74,8 @@ class staticMapLiteEx {
 	protected $useHTTPCache = true; // cache image in browser, using HTTP caching headers
 	protected $expireDays = 14; // days to keep image as fresh, via Expires header
 
+	protected $scale = 1;
+
 	protected $mapCacheID = '';
 	protected $mapCacheFile = '';
 	protected $mapCacheExtension = 'png'; // currently the only supported filetype is PNG; .png is its usual file extension
@@ -156,8 +158,12 @@ class staticMapLiteEx {
 
 	public function parseParams(){
 
+		if (@$this->request['scale']) {
+			$this->scale = (int)$this->request['scale'];
+		}
+
 		// get size from request
-		if(@$this->request['size']){
+		if(@$this->request['size']) {
 			list($this->width, $this->height) = explode('x',$this->request['size']);
 			$this->width = intval($this->width);
 			$this->height = intval($this->height);
@@ -301,6 +307,8 @@ class staticMapLiteEx {
 		if(@$this->request['maptype']){
 			if(array_key_exists($this->request['maptype'],$this->tileSrcUrl)) $this->maptype = $this->request['maptype'];
 		}
+
+		$this->mapCacheID = md5($this->serializeParams());
 	}
 
 	protected function getCenterFromMarkers($markerBox, $width, $height, $maxZoom, $minZoom) {
@@ -488,13 +496,12 @@ class staticMapLiteEx {
 	}
 
 	public function checkMapCache(){
-		$this->mapCacheID = md5($this->serializeParams());
 		$filename = $this->mapCacheIDToFilename();
 		return (file_exists($filename));
 	}
 
 	public function serializeParams(){
-		return join("&",array($this->zoom,$this->lat,$this->lon,$this->width,$this->height, serialize($this->markers),$this->maptype));
+		return join("&",array($this->zoom,$this->lat,$this->lon,$this->width,$this->height, serialize($this->markers),$this->maptype, $this->scale));
 	}
 
 	public function mapCacheIDToFilename(){
@@ -572,7 +579,7 @@ class staticMapLiteEx {
 	}
 
 	public function showMap(){
-		$etag = md5($this->serializeParams()); // which now means that "same ETag" means "same parameters" (a hash collision is unlikely under these circumstances)
+		$etag = $this->mapCacheID; // which now means that "same ETag" means "same parameters" (a hash collision is unlikely under these circumstances)
 
 		// if we have sent an ETag to the browser previously, this is how we get it back
 		if ($this->useHTTPCache && array_key_exists('HTTP_IF_NONE_MATCH',$this->requestHeaders)) {
@@ -590,7 +597,7 @@ class staticMapLiteEx {
 				$this->makeMap();
 				// ...and stored to disk, if possible
 				$this->mkdir_recursive(dirname($this->mapCacheIDToFilename()),0777);
-				imagepng($this->image,$this->mapCacheIDToFilename(),9);
+				$this->applyOutputFilters($this->image,$this->mapCacheIDToFilename(),9);
 				if(file_exists($this->mapCacheIDToFilename())){
 					// we have a file, so we can check for its modification date later; but we also send the ETag
 					$this->sendHeader($this->mapCacheIDToFilename(), $etag);
@@ -598,7 +605,7 @@ class staticMapLiteEx {
 				} else {
 					// map is not stored in disk cache, so we only send the ETag
 					$this->sendHeader(null,$etag);
-					return imagepng($this->image);
+					return $this->applyOutputFilters($this->image);
 				}
 			} else {
 				// map is in our disk cache
@@ -620,9 +627,13 @@ class staticMapLiteEx {
 			// no cache, make map, send headers and deliver png
 			$this->makeMap();
 			$this->sendHeader(null,$etag);
-			return imagepng($this->image);
+			return $this->applyOutputFilters($this->image);
 
 		}
+	}
+
+	protected function applyOutputFilters($image, $filename = null, $quality = null, $filters = null) {
+		return imagepng($image, $filename, $quality, $filters);
 	}
 
 }
