@@ -460,6 +460,7 @@ class staticMapLiteEx {
 			// check for shadow + create shadow resource
 			if($markerShadow && file_exists($this->markerBaseDir.'/'.$markerShadow)){
 				$markerShadowImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerShadow);
+				/** @noinspection PhpUndefinedVariableInspection - if $markerShadow is falsy, so are $markerShadowOffset{X|Y}  */
 				imagecopy($this->image, $markerShadowImg, $destX+intval($markerShadowOffsetX), $destY+intval($markerShadowOffsetY),
 				          0, 0, imagesx($markerShadowImg), imagesy($markerShadowImg));
 			}
