@@ -574,7 +574,7 @@ class staticMapLiteEx {
 	}
 
 	public function sendHeader($fname = null,$etag = null){
-		header('Content-Type: image/png'); // it's an image
+		header('Content-Type: image/' . $this->format); // it's an image
 		header("Pragma: public"); // ancient IE hack
 
 		if ($this->useHTTPCache) {
