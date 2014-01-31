@@ -666,7 +666,7 @@ class staticMapLiteEx {
 		// apply the required output format
 		if ($this->format == 'jpeg') {
 			// quality is PNG-derived (0-9), convert to something JPEG-worthy
-			return imagejpeg($image, $filename, 100 - ($quality * 10));
+			return imagejpeg($image, $filename, 90 - ($quality * 10));
 		} else if ($this->format == 'gif') {
 			return imagegif($image, $filename);
 		} else {
