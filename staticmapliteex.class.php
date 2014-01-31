@@ -49,7 +49,7 @@ class staticMapLiteEx {
 		                    'offsetShadow'=>false
 		),
 		// openlayers standard markers
-		'ol-marker'=> array('regex'=>'/^ol-marker(|-blue|-gold|-green)+$/',
+		'ol-marker'=> array('regex'=>'/^ol-marker(|-red|-blue|-gold|-green)+$/',
 		                    'extension'=>'.png',
 		                    'shadow'=>'../marker_shadow.png',
 		                    'offsetImage'=>'-10,-25',
@@ -250,6 +250,18 @@ class staticMapLiteEx {
 						'lon'=>$markerLon,
 						'type'=>$markerImage
 					);
+					// set data parsed from parameters
+					if (!$markerImage) {
+						if ($markerParams['color']) {
+							$markerPrototype = $this->markerPrototypes['ol-marker'];
+							if(preg_match($markerPrototype['regex'],'ol-marker-' . $markerParams['color'],$matches)){
+								$markerData['type'] = $matches[0];
+							}
+						} else if (@$this->request['visual_refresh']) {
+							// use the default ol-marker for all non-claimed markers
+							$markerData['type'] = 'ol-marker';
+						}
+					}
 
 					// fixes the N/S and W/E marker overlap issues
 					$markerKey = str_pad(str_pad($markerLat, 11, '0', STR_PAD_RIGHT),12, '0', STR_PAD_LEFT) . (180-$markerLon) .$markerImage;
