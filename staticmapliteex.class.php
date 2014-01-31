@@ -165,7 +165,35 @@ class staticMapLiteEx {
 
 		// get markers
 		if(@$this->request['markers']){
-			$markers = preg_split('/%7C|\|/',$this->request['markers']);
+
+			/*
+			 *  using multiple keys with the same name in query string is permitted, but regrettable:
+			 *  we will only get the last one into $_GET
+			 *  so we need to parse QS manually
+			 */
+			// first, a quick check
+			$markersPosition1 = strpos($this->requestHeaders['QUERY_STRING'],'markers'); // there needs to be one at least
+			$markersPosition2 = strpos($this->requestHeaders['QUERY_STRING'],'markers', $markersPosition1 + 1);
+
+			// if we have $markersPosition2, it means that we need to parse for multiple "marker=foobar" locations in QS
+			$kvpairs = array();
+			if ($markersPosition2 !== false) {
+				$qsParts = explode('&',$this->requestHeaders['QUERY_STRING']);
+				foreach ($qsParts as $qsp) {
+					list($key,$value) = explode('=',$qsp);
+					if (!array_key_exists($key,$kvpairs)) {
+						$kvpairs[$key] = array();
+					}
+					$kvpairs[$key][] = $value;
+				}
+			}
+			if (count($kvpairs) > 0 && count($kvpairs['markers']) > 1) {
+				// multiple sets of markers
+				$markerSets = $kvpairs['markers'];
+			} else {
+				// one set only, use the default from request
+				$markerSets = $this->request['markers'];
+			}
 
 			$this->markerBox = array(
 				'lat' => array(
@@ -177,34 +205,58 @@ class staticMapLiteEx {
 					'max' => -PHP_INT_MAX,
 				)
 			);
+			foreach ($markerSets as $markerSet) {
 
-			foreach($markers as $marker){
-				list($markerLat, $markerLon, $markerImage) = explode(',',$marker);
-				$markerLat = floatval($markerLat);
-				$markerLon = floatval($markerLon);
+				$markers = preg_split('/%7C|\|/',$markerSet);
 
-				// get minimum/maximum for all the markers
-				if ($this->markerBox['lat']['min'] > $markerLat) {
-					$this->markerBox['lat']['min'] = $markerLat;
-				}
-				if ($this->markerBox['lat']['max'] < $markerLat) {
-					$this->markerBox['lat']['max'] = $markerLat;
-				}
-				if ($this->markerBox['lon']['min'] > $markerLon) {
-					$this->markerBox['lon']['min'] = $markerLon;
-				}
-				if ($this->markerBox['lon']['max'] < $markerLon) {
-					$this->markerBox['lon']['max'] = $markerLon;
-				}
-
-				$markerImage = basename($markerImage);
-				$this->markers[$markerLat . $markerLon .$markerImage] = array(
-					'lat'=>$markerLat,
-					'lon'=>$markerLon,
-					'type'=>$markerImage
+				// reset between markers
+				$markerParams = array(
+					'color' => null,
+					'size' => null,
+					'letter' => null,
 				);
-			}
+				// from now on, we can pretend there was always just one set of markers.
+				foreach($markers as $marker){
+					list($markerLat, $markerLon, $markerImage) = preg_split('/,|%2C/',$marker);
+					$markerLat = floatval($markerLat);
+					$markerLon = floatval($markerLon);
+					if (($markerLat == $markerLon) && ($markerLat == 0)) {
+						// this is not a marker at all, this sets other params (size/letter/color)
+						list($param,$paramValue) = preg_split('/:|%3A/',$marker);
+						if (array_key_exists($param,$markerParams)) {
+							$markerParams[$param] = $paramValue;
+						}
+						continue;
+					}
 
+					// get minimum/maximum for all the markers
+					if ($this->markerBox['lat']['min'] > $markerLat) {
+						$this->markerBox['lat']['min'] = $markerLat;
+					}
+					if ($this->markerBox['lat']['max'] < $markerLat) {
+						$this->markerBox['lat']['max'] = $markerLat;
+					}
+					if ($this->markerBox['lon']['min'] > $markerLon) {
+						$this->markerBox['lon']['min'] = $markerLon;
+					}
+					if ($this->markerBox['lon']['max'] < $markerLon) {
+						$this->markerBox['lon']['max'] = $markerLon;
+					}
+
+					$markerImage = basename($markerImage);
+					// set basic data
+					$markerData = array(
+						'lat'=>$markerLat,
+						'lon'=>$markerLon,
+						'type'=>$markerImage
+					);
+
+					// fixes the N/S and W/E marker overlap issues
+					$markerKey = str_pad(str_pad($markerLat, 11, '0', STR_PAD_RIGHT),12, '0', STR_PAD_LEFT) . (180-$markerLon) .$markerImage;
+					$this->markers[$markerKey] = $markerData;
+				}
+
+			}
 			// these are useful for auto-zoom
 			$this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2;
 			$this->markerBox['lon']['center'] = ($this->markerBox['lon']['min'] + $this->markerBox['lon']['max']) / 2;
@@ -213,6 +265,7 @@ class staticMapLiteEx {
 
 			// together with the array keys, this ensures that southernmost keys are the last (therefore on top)
 			krsort($this->markers);
+			//var_dump($this->markers);
 		}
 
 		if (@$this->request['center']) {
