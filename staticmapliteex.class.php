@@ -216,7 +216,7 @@ class staticMapLiteEx {
 				$markerSets = $kvpairs['markers'];
 			} else {
 				// one set only, use the default from request
-				$markerSets = $this->request['markers'];
+				$markerSets = array($this->request['markers']);
 			}
 
 			$this->markerBox = array(
@@ -229,6 +229,7 @@ class staticMapLiteEx {
 					'max' => -PHP_INT_MAX,
 				)
 			);
+
 			foreach ($markerSets as $markerSet) {
 
 				$markers = preg_split('/%7C|\|/',$markerSet);
