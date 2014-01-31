@@ -165,7 +165,7 @@ class staticMapLiteEx {
 
 	public function parseParams(){
 
-		if (@$this->request['scale']) {
+		if (@$this->request['scale'] && ($this->request['scale'] == 2 || $this->request['scale'] == 4)) {
 			$this->scale = (int)$this->request['scale'];
 		}
 
@@ -650,7 +650,19 @@ class staticMapLiteEx {
 		}
 	}
 
-	protected function applyOutputFilters($image, $filename = null, $quality = null, $filters = null) {
+	protected function applyOutputFilters($image_orig, $filename = null, $quality = null, $filters = null) {
+		// scale if required
+		if ($this->scale != 1) {
+			$w = $this->scale * $this->width;
+			$h = $this->scale * $this->height;
+			$image = imagecreatetruecolor($w,$h);
+			imagecopyresampled($image,$image_orig,0,0,0,0, $w,$h, $this->width,$this->height);
+		} else {
+			$image = $image_orig;
+		}
+		unset($image_orig);
+
+		// apply the required output format
 		if ($this->format == 'jpeg') {
 			// quality is PNG-derived (0-9), convert to something JPEG-worthy
 			return imagejpeg($image, $filename, 100 - ($quality * 10));
