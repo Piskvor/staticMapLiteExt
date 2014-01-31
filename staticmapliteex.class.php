@@ -75,6 +75,13 @@ class staticMapLiteEx {
 	protected $expireDays = 14; // days to keep image as fresh, via Expires header
 
 	protected $scale = 1;
+	protected $format = 'png';
+
+	protected $supportedFormats = array(
+		'png' => 'png',
+		'jpeg' => 'jpg',
+		'gif' => 'gif'
+	);
 
 	protected $mapCacheID = '';
 	protected $mapCacheFile = '';
@@ -160,6 +167,17 @@ class staticMapLiteEx {
 
 		if (@$this->request['scale']) {
 			$this->scale = (int)$this->request['scale'];
+		}
+
+		if (@$this->request['format']) {
+			$format = strtolower($this->request['format']);
+			if ($format == 'jpg') {
+				$format = 'jpeg';
+			}
+			if (array_key_exists($format,$this->supportedFormats)) {
+				$this->format = $format;
+				$this->mapCacheExtension = $this->supportedFormats[$format];
+			}
 		}
 
 		// get size from request
@@ -501,7 +519,7 @@ class staticMapLiteEx {
 	}
 
 	public function serializeParams(){
-		return join("&",array($this->zoom,$this->lat,$this->lon,$this->width,$this->height, serialize($this->markers),$this->maptype, $this->scale));
+		return join("&",array($this->zoom,$this->lat,$this->lon,$this->width,$this->height, serialize($this->markers),$this->maptype, $this->scale, $this->format));
 	}
 
 	public function mapCacheIDToFilename(){
@@ -633,7 +651,14 @@ class staticMapLiteEx {
 	}
 
 	protected function applyOutputFilters($image, $filename = null, $quality = null, $filters = null) {
-		return imagepng($image, $filename, $quality, $filters);
+		if ($this->format == 'jpeg') {
+			// quality is PNG-derived (0-9), convert to something JPEG-worthy
+			return imagejpeg($image, $filename, 100 - ($quality * 10));
+		} else if ($this->format == 'gif') {
+			return imagegif($image, $filename);
+		} else {
+			return imagepng($image, $filename, $quality, $filters);
+		}
 	}
 
 }
