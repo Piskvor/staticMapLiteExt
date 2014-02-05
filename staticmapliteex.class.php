@@ -51,6 +51,7 @@ class staticMapLiteEx {
 		// openlayers standard markers
 		'ol-marker'=> array('regex'=>'/^ol-marker(|-red|-blue|-gold|-green)+$/',
 		                    'extension'=>'.png',
+		                    'transparent'=>true,
 		                    'shadow'=>'../marker_shadow.png',
 		                    'offsetImage'=>'-10,-25',
 		                    'offsetShadow'=>'-1,-13'
@@ -237,6 +238,7 @@ class staticMapLiteEx {
 				// reset between markers
 				$markerParams = array(
 					'color' => null,
+					'transparent' => false,
 					'size' => null,
 					'letter' => null,
 				);
@@ -285,6 +287,9 @@ class staticMapLiteEx {
 						} else if (@$this->request['visual_refresh']) {
 							// use the default ol-marker for all non-claimed markers
 							$markerData['type'] = 'ol-marker';
+						}
+						if ($markerParams['transparent']) {
+							$markerData['transparent'] = $markerParams['transparent'];
 						}
 					}
 
@@ -442,6 +447,7 @@ class staticMapLiteEx {
 			$markerLat = $marker['lat'];
 			$markerLon = $marker['lon'];
 			$markerType = $marker['type'];
+			$markerTransparency = $marker['transparent'];
 			// clear variables from previous loops
 			$markerFilename = '';
 			$markerShadow = '';
@@ -453,7 +459,12 @@ class staticMapLiteEx {
 			if($markerType){
 				foreach($this->markerPrototypes as $markerPrototype){
 					if(preg_match($markerPrototype['regex'],$markerType,$matches)){
-						$markerFilename = $matches[0].$markerPrototype['extension'];
+						if ($markerTransparency && $markerPrototype['transparent']) {
+							// only if transparency requested and available
+							$markerFilename = $matches[0]. '-transparent' .$markerPrototype['extension'];
+						} else {
+							$markerFilename = $matches[0].$markerPrototype['extension'];
+						}
 						if($markerPrototype['offsetImage']){
 							list($markerImageOffsetX, $markerImageOffsetY)  = explode(",",$markerPrototype['offsetImage']);
 						}
@@ -666,7 +677,7 @@ class staticMapLiteEx {
 		// apply the required output format
 		if ($this->format == 'jpeg') {
 			// quality is PNG-derived (0-9), convert to something JPEG-worthy
-			return imagejpeg($image, $filename, 115 - ($quality * 10));
+			return imagejpeg($image, $filename, 130 - ($quality * 10));
 		} else if ($this->format == 'gif') {
 			return imagegif($image, $filename);
 		} else {
