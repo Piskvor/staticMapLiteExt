@@ -3,7 +3,7 @@
   "description": "Generate static map images from tile server+local data",
   "type": "project",
   "license": "Apache License",
-  "version": "0.0.4",
+  "version": "0.5",
   "authors": [
     {
       "name": "Jan Piskvor Martinec",

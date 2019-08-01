@@ -4,8 +4,8 @@
  * staticMapLite 0.03
  * Copyright 2009 Gerhard Koch
  *
- * staticMapLiteEx 0.04
- * Copyright 2013 Jan Martinec
+ * staticMapLiteEx 0.04+
+ * Copyright 2013,2019 Jan Martinec
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ class StaticMapLiteEx
     );
 
     // default User-Agent
-    protected $userAgent = 'PHP/staticMapLiteEx 0.04';
+    protected $userAgent = 'PHP/staticMapLiteEx 0.5';
 
     protected $tileDefaultSrc;
 

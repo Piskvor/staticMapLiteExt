@@ -16,7 +16,7 @@ require_once(__DIR__ . '/staticmapliteex.class.php');
     'tile' => true,
     'map' => true
   )
-  'ua' => 'staticMapLiteEx/0.04',
+  'ua' => 'staticMapLiteEx/0.5',
 
  */
 $map = new StaticMapLiteEx(
@@ -45,7 +45,7 @@ $map = new StaticMapLiteEx(
         ),
 
         /* user agent to send in map tile requests */
-        'ua' => 'staticMapLiteEx/0.04',
+        'ua' => 'staticMapLiteEx/0.5',
 
         /* max and min zoom only needed for "autozoom to markers" */
         'minZoom' => 1,
