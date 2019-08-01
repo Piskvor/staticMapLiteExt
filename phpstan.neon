@@ -3,8 +3,3 @@ includes:
 
 parameters:
     level: max
-services:
-    errorFormatter.compact:
-        class: Grifart\PhpstanOneLine\CompactErrorFormatter
-        arguments:
-            format: "]8;;phpstorm://open/?file={absolutePath}&line={line}\\{path}:{line}]8;;\\\n ↳ {error}"
