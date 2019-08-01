@@ -513,7 +513,7 @@ class staticMapLiteEx {
 
 
 	public function tileUrlToFilename($url){
-		return $this->tileCacheBaseDir."/".str_replace(array('http://'),'',$url);
+		return $this->tileCacheBaseDir."/".preg_replace(array('~^https?://~i'),'',$url);
 	}
 
 	public function checkTileCache($url){
