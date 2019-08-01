@@ -1,1 +1,1 @@
-directories are automagically created here for tiles - local cache, if you will
+directories are automagically created here for tiles - a local cache. Note that the cache is never emptied.

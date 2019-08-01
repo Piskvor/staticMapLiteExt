@@ -35,6 +35,9 @@ $map = new StaticMapLiteEx(
             'example' => 'http://example.com/some/path/{Z}/{X}/{Y}.png',
         ),
 
+        /* Note that the disk caches are never emptied:
+         *  - they can become large and/or stale
+         */
         'cache' => array(
             'http' => true,
             'tile' => true,
