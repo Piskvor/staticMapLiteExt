@@ -181,55 +181,12 @@ class StaticMapLiteEx
 
     public function parseParams()
     {
-        // get markers
-        if (@$this->request['markers']) {
-            $markerSets = $this->parseMarkers(
-                @$this->requestHeaders['QUERY_STRING'],
-                $this->request['markers']
-            );
-
-            $this->markerBox = $this->getBoundingBox($markerSets);
-
-            foreach ($markerSets as $markerSet) {
-                $markers = preg_split('/%7C|\|/', $markerSet);
-                if (! $markers) {
-                    continue;
-                }
-
-                // reset between marker sets
-                $markerSetDisplay = array(
-                    'color' => null,
-                    'transparent' => false,
-                    'size' => null,
-                    'letter' => null,
-                );
-                // from now on, we can pretend there was always just one set of markers.
-                foreach ($markers as $marker) {
-                    list($markerKey, $markerData) = $this->getMarkerData(
-                        $marker,
-                        $markerSetDisplay
-                    );
-                    if ($markerKey) {
-                        $this->markers[$markerKey] = $markerData;
-                    }
-                }
-            }
-            // together with the array keys, this ensures that southernmost keys are the last (therefore on top)
-            krsort($this->markers);
-            //var_dump($this->markers);
-        }
+        $this->determineMarkers();
         $this->determineFormat();
         $this->determinePixelSize();
         $this->determineCenter();
         $this->determineZoom();
-
-        // set map type
-        if (@$this->request['maptype']) {
-            if (array_key_exists($this->request['maptype'], $this->tileSrcUrl)) {
-                $this->maptype = $this->request['maptype'];
-            }
-        }
-
+        $this->determineMapType();
         $this->mapCacheID = md5($this->serializeParams());
     }
 
@@ -311,7 +268,7 @@ class StaticMapLiteEx
         $this->offsetY = floor((floor($this->centerY) - $this->centerY) * $this->tileSize);
     }
 
-    public function createBaseMap()
+    public function renderBaseMap()
     {
         $image = imagecreatetruecolor($this->width, $this->height);
         if (! $image) {
@@ -340,11 +297,7 @@ class StaticMapLiteEx
                 if ($tileData) {
                     $tileImage = imagecreatefromstring($tileData);
                 } else {
-                    $tileImage = imagecreate($this->tileSize, $this->tileSize);
-                    if ($tileImage) {
-                        $color = imagecolorallocate($tileImage, 255, 255, 255);
-                        @imagestring($tileImage, 1, 127, 127, 'err', $color);
-                    }
+                    $tileImage = $this->fetchErrorTile();
                 }
                 if (! $tileImage) {
                     continue;
@@ -357,7 +310,7 @@ class StaticMapLiteEx
     }
 
 
-    public function placeMarkers()
+    public function renderMarkers()
     {
         $markerIndex = 0; // used for auto-numbering markers
 
@@ -439,7 +392,6 @@ class StaticMapLiteEx
             );
         };
     }
-
 
     public function tileUrlToFilename($url)
     {
@@ -544,7 +496,7 @@ class StaticMapLiteEx
     }
 
     // OSM requires attribution, use the predefined logo
-    public function copyrightNotice()
+    public function renderCopyrightNotice()
     {
         // add OSM logo
         $logoImg = imagecreatefrompng($this->osmLogo);
@@ -586,12 +538,12 @@ class StaticMapLiteEx
     public function makeMap()
     {
         $this->initCoords();
-        $this->createBaseMap();
+        $this->renderBaseMap();
         if (count($this->markers)) {
-            $this->placeMarkers();
+            $this->renderMarkers();
         }
         if ($this->osmLogo) {
-            $this->copyrightNotice();
+            $this->renderCopyrightNotice();
         }
     }
 
@@ -1072,5 +1024,70 @@ class StaticMapLiteEx
 
             return file_get_contents($this->mapCacheIDToFilename());
         }
+    }
+
+    private function determineMapType()
+    {
+        // set map type
+        if (@$this->request['maptype']) {
+            if (array_key_exists($this->request['maptype'], $this->tileSrcUrl)) {
+                $this->maptype = $this->request['maptype'];
+            }
+        }
+    }
+
+    private function determineMarkers()
+    {
+        // get markers
+        if (@$this->request['markers']) {
+            $markerSets = $this->parseMarkers(
+                @$this->requestHeaders['QUERY_STRING'],
+                $this->request['markers']
+            );
+
+            $this->markerBox = $this->getBoundingBox($markerSets);
+
+            foreach ($markerSets as $markerSet) {
+                $markers = preg_split('/%7C|\|/', $markerSet);
+                if (! $markers) {
+                    continue;
+                }
+
+                // reset between marker sets
+                $markerSetDisplay = array(
+                    'color' => null,
+                    'transparent' => false,
+                    'size' => null,
+                    'letter' => null,
+                );
+                // from now on, we can pretend there was always just one set of markers.
+                foreach ($markers as $marker) {
+                    list($markerKey, $markerData) = $this->getMarkerData(
+                        $marker,
+                        $markerSetDisplay
+                    );
+                    if ($markerKey) {
+                        $this->markers[$markerKey] = $markerData;
+                    }
+                }
+            }
+            // together with the array keys, this ensures that southernmost keys are the last (therefore on top)
+            krsort($this->markers);
+            //var_dump($this->markers);
+        }
+    }
+
+    /**
+     * @return false|resource
+     */
+    private function fetchErrorTile()
+    {
+        $tileImage = imagecreate($this->tileSize, $this->tileSize);
+        if ($tileImage) {
+            $color = imagecolorallocate($tileImage, 255, 255, 255);
+            @imagestring($tileImage, 1, 127, 127, 'err', $color);
+        }
+
+        return $tileImage;
     }
 }
