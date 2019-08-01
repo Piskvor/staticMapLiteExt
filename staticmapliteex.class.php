@@ -28,7 +28,7 @@
  *
  */
 
-require_once __DIR__ . '/staticmapliteexception.class.php';
+require_once __DIR__.'/staticmapliteexception.class.php';
 
 class StaticMapLiteEx
 {
@@ -38,11 +38,11 @@ class StaticMapLiteEx
 
     protected $tileSrcUrl = array(
         // the "usual" OpenStreetMap tiles
-        'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png'
+        'mapnik' => 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png',
     );
 
     // default User-Agent
-    protected $ua = 'PHP/staticMapLiteEx 0.04';
+    protected $userAgent = 'PHP/staticMapLiteEx 0.04';
 
     protected $tileDefaultSrc;
 
@@ -53,31 +53,31 @@ class StaticMapLiteEx
     protected $osmLogo = 'images/osm_logo.png';
 
     protected $markerPrototypes = array(
-                                        // found at http://www.mapito.net/map-marker-icons.html
-                                        'lighblue' => array(
-                                            'regex' => '/^lightblue([0-9]+)$/',
-                                            'extension' => '.png',
-                                            'shadow' => false,
-                                            'offsetImage' => '0,-19',
-                                            'offsetShadow' => false,
-                                        ),
-                                        // openlayers standard markers
-                                        'ol-marker' => array(
-                                            'regex' => '/^ol-marker(-red|-blue|-gold|-green)?$/',
-                                            'extension' => '.png',
-                                            'transparent' => true,
-                                            'shadow' => '../marker_shadow.png',
-                                            'offsetImage' => '-10,-25',
-                                            'offsetShadow' => '-1,-13',
-                                        ),
-                                        // taken from http://www.visual-case.it/cgi-bin/vc/GMapsIcons.pl
-                                        'ylw' => array(
-                                            'regex' => '/^(pink|purple|red|ltblu|ylw)-pushpin$/',
-                                            'extension' => '.png',
-                                            'shadow' => '../marker_shadow.png',
-                                            'offsetImage' => '-10,-32',
-                                            'offsetShadow' => '-1,-13',
-                                        ),
+        // found at http://www.mapito.net/map-marker-icons.html
+        'lighblue' => array(
+            'regex' => '/^lightblue([0-9]+)$/',
+            'extension' => '.png',
+            'shadow' => false,
+            'offsetImage' => '0,-19',
+            'offsetShadow' => false,
+        ),
+        // openlayers standard markers
+        'ol-marker' => array(
+            'regex' => '/^ol-marker(-red|-blue|-gold|-green)?$/',
+            'extension' => '.png',
+            'transparent' => true,
+            'shadow' => '../marker_shadow.png',
+            'offsetImage' => '-10,-25',
+            'offsetShadow' => '-1,-13',
+        ),
+        // taken from http://www.visual-case.it/cgi-bin/vc/GMapsIcons.pl
+        'ylw' => array(
+            'regex' => '/^(pink|purple|red|ltblu|ylw)-pushpin$/',
+            'extension' => '.png',
+            'shadow' => '../marker_shadow.png',
+            'offsetImage' => '-10,-32',
+            'offsetShadow' => '-1,-13',
+        ),
 
     );
 
@@ -96,10 +96,9 @@ class StaticMapLiteEx
     // cache image in browser, using HTTP caching headers
     protected $useHTTPCache = true;
 
-    // days to keep image as fresh, via Expires header
-
     /**
      * @var int
+     * Number of days to keep image as fresh, via Expires header
      */
     protected $expireDays = 14;
 
@@ -123,24 +122,34 @@ class StaticMapLiteEx
     protected $zoom; // see http://wiki.openstreetmap.org/wiki/Zoom_levels
 
     protected $lat;
+
     protected $lon;
+
     protected $width;
+
     protected $height;
 
     /**
      * @var resource
      */
     protected $image;
+
     protected $maptype;
 
     protected $markers;
+
     protected $markerBox;
+
     protected $minZoom;
+
     protected $maxZoom;
 
     protected $centerX;
+
     protected $centerY;
+
     protected $offsetX;
+
     protected $offsetY;
 
     protected $request;
@@ -157,20 +166,7 @@ class StaticMapLiteEx
         if (! $config) {
             $config = array();
         }
-        // bail if we can't fetch HTTP resources
-        if (! $this->checkCurlFunctions()) {
-            throw new StaticMapLiteException('Required library not loaded: curl');
-        }
-        // bail if we can't work with images
-        if (! $this->checkGdFunctions()) {
-            throw new StaticMapLiteException('Required library not loaded: gd');
-        }
-        $this->zoom = 0;
-        $this->lat = 0;
-        $this->lon = 0;
-        $this->width = 500;
-        $this->height = 350;
-        $this->markers = array();
+        $this->checkDependencies();
 
         if (! array_key_exists('request', $config)) {
             $config['request'] = $_GET;
@@ -178,47 +174,9 @@ class StaticMapLiteEx
         if (! array_key_exists('requestHeaders', $config)) {
             $config['requestHeaders'] = $_SERVER;
         }
-        $this->request = $config['request']; // this is usually $_GET
-        $this->requestHeaders = $config['headers']; // this is usually $_SERVER
+        $this->setDefaults();
+        $this->configure($config);
 
-        // set map sources
-        if (array_key_exists('mapSources', $config)) {
-            $this->tileSrcUrl = $config['mapSources'];
-        }
-        // set User-Agent
-        if (array_key_exists('ua', $config)) {
-            $this->ua = $config['ua'];
-        }
-
-        // min/max zoom to use for auto-zooming
-        if (array_key_exists('minZoom', $config)) {
-            $this->minZoom = $config['minZoom'];
-        } else {
-            $this->minZoom = 1;
-        }
-        if (array_key_exists('maxZoom', $config)) {
-            $this->maxZoom = $config['maxZoom'];
-        } else {
-            $this->maxZoom = 18;
-        }
-        // configure various caching options
-        if (array_key_exists('cache', $config)) {
-            $cache = $config['cache'];
-            if (array_key_exists('http', $cache)) {
-                $this->useHTTPCache = (boolean)$cache['http'];
-            }
-            if (array_key_exists('tile', $cache)) {
-                $this->useTileCache = (boolean)$cache['tile'];
-            }
-            if (array_key_exists('map', $cache)) {
-                $this->useMapCache = (boolean)$cache['map'];
-            }
-        }
-
-        // set the first source to be the default
-        $sources = array_keys($this->tileSrcUrl);
-        $this->tileDefaultSrc = $sources[0];
-        $this->maptype = $this->tileDefaultSrc;
     }
 
     public function parseParams()
@@ -247,48 +205,12 @@ class StaticMapLiteEx
 
         // get markers
         if (@$this->request['markers']) {
-            /*
-             *  using multiple keys with the same name in query string is permitted, but regrettable:
-             *  we will only get the last one into $_GET
-             *  so we need to parse QS manually
-             */
-            // first, a quick check
-            $markersPosition1 = strpos(
-                $this->requestHeaders['QUERY_STRING'],
-                'markers'
-            ); // there needs to be one at least
-            $markersPosition2 = strpos($this->requestHeaders['QUERY_STRING'], 'markers', $markersPosition1 + 1);
-
-            // if we have $markersPosition2, it means that we need to parse for multiple "marker=foobar" locations in QS
-            $kvpairs = array();
-            if ($markersPosition2 !== false) {
-                $qsParts = explode('&', $this->requestHeaders['QUERY_STRING']);
-                foreach ($qsParts as $qsp) {
-                    list($key, $value) = explode('=', $qsp);
-                    if (! array_key_exists($key, $kvpairs)) {
-                        $kvpairs[$key] = array();
-                    }
-                    $kvpairs[$key][] = $value;
-                }
-            }
-            if (count($kvpairs) > 0 && count($kvpairs['markers']) > 1) {
-                // multiple sets of markers
-                $markerSets = $kvpairs['markers'];
-            } else {
-                // one set only, use the default from request
-                $markerSets = array($this->request['markers']);
-            }
-
-            $this->markerBox = array(
-                'lat' => array(
-                    'min' => PHP_INT_MAX,
-                    'max' => -PHP_INT_MAX,
-                ),
-                'lon' => array(
-                    'min' => PHP_INT_MAX,
-                    'max' => -PHP_INT_MAX,
-                ),
+            $markerSets = $this->parseMarkers(
+                @$this->requestHeaders['QUERY_STRING'],
+                $this->request['markers']
             );
+
+            $this->markerBox = $this->getBoundingBox($markerSets);
 
             foreach ($markerSets as $markerSet) {
                 $markers = preg_split('/%7C|\|/', $markerSet);
@@ -315,20 +237,6 @@ class StaticMapLiteEx
                             $markerParams[$param] = $paramValue;
                         }
                         continue;
-                    }
-
-                    // get minimum/maximum for all the markers
-                    if ($this->markerBox['lat']['min'] > $markerLat) {
-                        $this->markerBox['lat']['min'] = $markerLat;
-                    }
-                    if ($this->markerBox['lat']['max'] < $markerLat) {
-                        $this->markerBox['lat']['max'] = $markerLat;
-                    }
-                    if ($this->markerBox['lon']['min'] > $markerLon) {
-                        $this->markerBox['lon']['min'] = $markerLon;
-                    }
-                    if ($this->markerBox['lon']['max'] < $markerLon) {
-                        $this->markerBox['lon']['max'] = $markerLon;
                     }
 
                     if ($markerImage) {
@@ -360,20 +268,14 @@ class StaticMapLiteEx
 
                     // fixes the N/S and W/E marker overlap issues
                     $markerKey = str_pad(
-                        str_pad((string) $markerLat, 11, '0', STR_PAD_RIGHT),
-                        12,
-                        '0',
-                        STR_PAD_LEFT
-                    ).(180 - $markerLon).$markerImage;
+                            str_pad((string)$markerLat, 11, '0', STR_PAD_RIGHT),
+                            12,
+                            '0',
+                            STR_PAD_LEFT
+                        ).(180 - $markerLon).$markerImage;
                     $this->markers[$markerKey] = $markerData;
                 }
             }
-            // these are useful for auto-zoom
-            $this->markerBox['lat']['center'] = ($this->markerBox['lat']['min'] + $this->markerBox['lat']['max']) / 2;
-            $this->markerBox['lon']['center'] = ($this->markerBox['lon']['min'] + $this->markerBox['lon']['max']) / 2;
-            $this->markerBox['lat']['size'] = $this->markerBox['lat']['max'] - $this->markerBox['lat']['min'];
-            $this->markerBox['lon']['size'] = $this->markerBox['lon']['max'] - $this->markerBox['lon']['min'];
-
             // together with the array keys, this ensures that southernmost keys are the last (therefore on top)
             krsort($this->markers);
             //var_dump($this->markers);
@@ -386,8 +288,8 @@ class StaticMapLiteEx
             $this->lon = floatval($this->lon);
         } else {
             if (count(
-                $this->markers
-            ) && $this->minZoom !== null && $this->maxZoom !== null && $this->minZoom <= $this->maxZoom) {
+                    $this->markers
+                ) && $this->minZoom !== null && $this->maxZoom !== null && $this->minZoom <= $this->maxZoom) {
                 // if we have markers but not center, find the center and zoom from marker position(s)
                 list($this->lat, $this->lon, $this->zoom) = $this->getCenterFromMarkers(
                     $this->markerBox,
@@ -534,7 +436,7 @@ class StaticMapLiteEx
                 }
                 $destX = ($x - $startX) * $this->tileSize + $this->offsetX;
                 $destY = ($y - $startY) * $this->tileSize + $this->offsetY;
-                imagecopy($this->image, $tileImage, (int) $destX, (int) $destY, 0, 0, $this->tileSize, $this->tileSize);
+                imagecopy($this->image, $tileImage, (int)$destX, (int)$destY, 0, 0, $this->tileSize, $this->tileSize);
             }
         }
     }
@@ -618,8 +520,8 @@ class StaticMapLiteEx
                     imagecopy(
                         $this->image,
                         $markerShadowImg,
-                        (int) ($destX + intval($markerShadowOffsetX)),
-                        (int) ($destY + intval($markerShadowOffsetY)),
+                        (int)($destX + intval($markerShadowOffsetX)),
+                        (int)($destY + intval($markerShadowOffsetY)),
                         0,
                         0,
                         imagesx($markerShadowImg),
@@ -632,8 +534,8 @@ class StaticMapLiteEx
             imagecopy(
                 $this->image,
                 $markerImg,
-                (int) ($destX + intval($markerImageOffsetX)),
-                (int) ($destY + intval($markerImageOffsetY)),
+                (int)($destX + intval($markerImageOffsetX)),
+                (int)($destY + intval($markerImageOffsetY)),
                 0,
                 0,
                 imagesx($markerImg),
@@ -687,10 +589,10 @@ class StaticMapLiteEx
     {
         if (! $this->mapCacheFile) {
             $this->mapCacheFile = $this->mapCacheBaseDir."/".$this->maptype."/".$this->zoom."/cache_".substr(
-                $this->mapCacheID,
-                0,
-                2
-            )."/".substr($this->mapCacheID, 2, 2)."/".substr($this->mapCacheID, 4);
+                    $this->mapCacheID,
+                    0,
+                    2
+                )."/".substr($this->mapCacheID, 2, 2)."/".substr($this->mapCacheID, 4);
         }
 
         return $this->mapCacheFile.".".$this->mapCacheExtension;
@@ -715,14 +617,14 @@ class StaticMapLiteEx
         if ($this->useTileCache && ($cached = $this->checkTileCache($url))) {
             return $cached;
         }
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5); // time out faster
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // time out faster - but not too fast
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_USERAGENT, $this->ua);
-        curl_setopt($ch, CURLOPT_URL, $url);
-        $tile = curl_exec($ch);
-        curl_close($ch);
+        $curlHandle = curl_init();
+        curl_setopt($curlHandle, CURLOPT_TIMEOUT, 5); // time out faster
+        curl_setopt($curlHandle, CURLOPT_CONNECTTIMEOUT, 10); // time out faster - but not too fast
+        curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curlHandle, CURLOPT_USERAGENT, $this->userAgent);
+        curl_setopt($curlHandle, CURLOPT_URL, $url);
+        $tile = curl_exec($curlHandle);
+        curl_close($curlHandle);
         if ($tile && $this->useTileCache) { // cache if result
             $this->writeTileToCache($url, $tile);
         }
@@ -754,8 +656,8 @@ class StaticMapLiteEx
             imagecopy(
                 $this->image,
                 $logoImg,
-                (int) (imagesx($this->image) - imagesx($logoImg)),
-                (int) (imagesy($this->image) - imagesy($logoImg)),
+                (int)(imagesx($this->image) - imagesx($logoImg)),
+                (int)(imagesy($this->image) - imagesy($logoImg)),
                 0,
                 0,
                 imagesx($logoImg),
@@ -807,6 +709,7 @@ class StaticMapLiteEx
             if ($etag == $this->requestHeaders['HTTP_IF_NONE_MATCH']) {
                 // No changes, don't send anything - the browser already has it.
                 header('HTTP/1.1 304 Not Modified');
+
                 return '';
             }
         }
@@ -860,13 +763,13 @@ class StaticMapLiteEx
     {
         // scale if required
         if ($this->scale != 1) {
-            $w = $this->scale * $this->width;
-            $h = $this->scale * $this->height;
-            $image = imagecreatetruecolor($w, $h);
+            $width = $this->scale * $this->width;
+            $height = $this->scale * $this->height;
+            $image = imagecreatetruecolor($width, $height);
             if (! $image) {
                 return false;
             }
-            imagecopyresampled($image, $image_orig, 0, 0, 0, 0, $w, $h, $this->width, $this->height);
+            imagecopyresampled($image, $image_orig, 0, 0, 0, 0, $width, $height, $this->width, $this->height);
         } else {
             $image = $image_orig;
         }
@@ -875,13 +778,190 @@ class StaticMapLiteEx
         // apply the required output format
         if ($this->format == 'jpeg') {
             // quality is PNG-derived (0-9), convert to something JPEG-worthy
-            return imagejpeg($image, $filename, (int) (130 - ($quality * 10)));
+            return imagejpeg($image, $filename, (int)(130 - ($quality * 10)));
         } else {
             if ($this->format == 'gif') {
                 return imagegif($image, $filename);
             } else {
                 return imagepng($image, $filename, $quality, $filters);
             }
+        }
+    }
+
+    /**
+     * @param array $config
+     */
+    private function configure($config)
+    {
+        $this->request = $config['request']; // this is usually $_GET
+        $this->requestHeaders = $config['headers']; // this is usually $_SERVER
+
+        // set map sources
+        if (array_key_exists('mapSources', $config)) {
+            $this->tileSrcUrl = $config['mapSources'];
+        }
+        // set User-Agent
+        if (array_key_exists('ua', $config)) {
+            $this->userAgent = $config['ua'];
+        }
+
+        // min/max zoom to use for auto-zooming
+        if (array_key_exists('minZoom', $config)) {
+            $this->minZoom = $config['minZoom'];
+        } else {
+            $this->minZoom = 1;
+        }
+        if (array_key_exists('maxZoom', $config)) {
+            $this->maxZoom = $config['maxZoom'];
+        } else {
+            $this->maxZoom = 18;
+        }
+        // configure various caching options
+        if (array_key_exists('cache', $config)) {
+            $cache = $config['cache'];
+            if (array_key_exists('http', $cache)) {
+                $this->useHTTPCache = (boolean)$cache['http'];
+            }
+            if (array_key_exists('tile', $cache)) {
+                $this->useTileCache = (boolean)$cache['tile'];
+            }
+            if (array_key_exists('map', $cache)) {
+                $this->useMapCache = (boolean)$cache['map'];
+            }
+        }
+
+        // set the first source to be the default
+        $sources = array_keys($this->tileSrcUrl);
+        $this->tileDefaultSrc = $sources[0];
+        $this->maptype = $this->tileDefaultSrc;
+    }
+
+    private function setDefaults()
+    {
+        $this->zoom = 0;
+        $this->lat = 0;
+        $this->lon = 0;
+        $this->width = 500;
+        $this->height = 350;
+        $this->markers = array();
+    }
+
+    private function checkDependencies()
+    {
+        // bail if we can't fetch HTTP resources
+        if (! $this->checkCurlFunctions()) {
+            throw new StaticMapLiteException('Required library not loaded: curl');
+        }
+        // bail if we can't work with images
+        if (! $this->checkGdFunctions()) {
+            throw new StaticMapLiteException('Required library not loaded: gd');
+        }
+    }
+
+    /**
+     * @param string $queryString
+     * @param array $defaultSet
+     * @return array|mixed
+     */
+    private function parseMarkers($queryString = '', $defaultSet = array())
+    {
+        /*
+         *  using multiple keys with the same name in query string is permitted, but regrettable:
+         *  we will only get the last one into $_GET
+         *  so we need to parse QS manually
+         *  (we need to follow this convention to have drop-in compatibility with GMaps' generator)
+         */
+        // first, a quick check
+        $markersPosition1 = strpos(
+            $queryString,
+            'markers'
+        ); // there needs to be one at least
+        $markersPosition2 = strpos($queryString, 'markers', $markersPosition1 + 1);
+
+        // if we have $markersPosition2, it means that we need to parse for multiple "marker=foobar" locations in QS
+        $keyValuePairs = array();
+        if ($markersPosition2 !== false) {
+            $qsParts = explode('&', $queryString);
+            foreach ($qsParts as $qsp) {
+                list($key, $value) = explode('=', $qsp);
+                if (! array_key_exists($key, $keyValuePairs)) {
+                    $keyValuePairs[$key] = array();
+                }
+                $keyValuePairs[$key][] = $value;
+            }
+        }
+        if (count($keyValuePairs) > 0 && count($keyValuePairs['markers']) > 1) {
+            // multiple sets of markers
+            $markerSets = $keyValuePairs['markers'];
+        } else {
+            // one set only, use the default from request
+            $markerSets = array($defaultSet);
+        }
+
+        return $markerSets;
+    }
+
+    /**
+     * @param array $markerSets
+     * @return array
+     */
+    private function getBoundingBox($markerSets = array())
+    {
+        $markerBox = array(
+            'lat' => array(
+                'min' => PHP_INT_MAX,
+                'max' => -PHP_INT_MAX,
+            ),
+            'lon' => array(
+                'min' => PHP_INT_MAX,
+                'max' => -PHP_INT_MAX,
+            ),
+        );
+
+        foreach ($markerSets as $markerSet) {
+            $markers = preg_split('/%7C|\|/', $markerSet);
+            if (! $markers) {
+                continue;
+            }
+
+            foreach ($markers as $marker) {
+                $this->adjustMarkerBoxBounds($marker, $markerBox);
+            }
+        }
+        // these are useful for determining auto-zoom
+        $markerBox['lat']['center'] = ($markerBox['lat']['min'] + $markerBox['lat']['max']) / 2;
+        $markerBox['lon']['center'] = ($markerBox['lon']['min'] + $markerBox['lon']['max']) / 2;
+        $markerBox['lat']['size'] = $markerBox['lat']['max'] - $markerBox['lat']['min'];
+        $markerBox['lon']['size'] = $markerBox['lon']['max'] - $markerBox['lon']['min'];
+
+        return $markerBox;
+    }
+
+    /**
+     * @param string $marker
+     * @param array $markerBox
+     */
+    private function adjustMarkerBoxBounds($marker, array &$markerBox)
+    {
+        list($markerLat, $markerLon) = preg_split('/,|%2C/', $marker);
+        $markerLat = floatval($markerLat);
+        $markerLon = floatval($markerLon);
+        if (($markerLat === $markerLon) && ($markerLat === 0.0)) {
+            // bogus marker
+            return;
+        }
+        // get minimum/maximum for all the markers
+        if ($markerBox['lat']['min'] > $markerLat) {
+            $markerBox['lat']['min'] = $markerLat;
+        }
+        if ($markerBox['lat']['max'] < $markerLat) {
+            $markerBox['lat']['max'] = $markerLat;
+        }
+        if ($markerBox['lon']['min'] > $markerLon) {
+            $markerBox['lon']['min'] = $markerLon;
+        }
+        if ($markerBox['lon']['max'] < $markerLon) {
+            $markerBox['lon']['max'] = $markerLon;
         }
     }
 }
