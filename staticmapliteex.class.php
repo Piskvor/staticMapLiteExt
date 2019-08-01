@@ -218,8 +218,8 @@ class StaticMapLiteEx
                     continue;
                 }
 
-                // reset between markers
-                $markerParams = array(
+                // reset between marker sets
+                $markerSetDisplay = array(
                     'color' => null,
                     'transparent' => false,
                     'size' => null,
@@ -227,53 +227,13 @@ class StaticMapLiteEx
                 );
                 // from now on, we can pretend there was always just one set of markers.
                 foreach ($markers as $marker) {
-                    list($markerLat, $markerLon, $markerImage) = preg_split('/,|%2C/', $marker);
-                    $markerLat = floatval($markerLat);
-                    $markerLon = floatval($markerLon);
-                    if (($markerLat == $markerLon) && ($markerLat == 0)) {
-                        // this is not a marker at all, this sets other params (size/letter/color)
-                        list($param, $paramValue) = preg_split('/:|%3A/', $marker);
-                        if ($param && array_key_exists($param, $markerParams)) {
-                            $markerParams[$param] = $paramValue;
-                        }
-                        continue;
-                    }
-
-                    if ($markerImage) {
-                        $markerImage = basename($markerImage);
-                    }
-                    // set basic data
-                    $markerData = array(
-                        'lat' => $markerLat,
-                        'lon' => $markerLon,
-                        'type' => $markerImage,
+                    list($markerKey, $markerData) = $this->getMarkerData(
+                        $marker,
+                        $markerSetDisplay
                     );
-                    // set data parsed from parameters
-                    if (! $markerImage) {
-                        if ($markerParams['color']) {
-                            $markerPrototype = $this->markerPrototypes['ol-marker'];
-                            if (preg_match($markerPrototype['regex'], 'ol-marker-'.$markerParams['color'], $matches)) {
-                                $markerData['type'] = $matches[0];
-                            }
-                        } else {
-                            if (@$this->request['visual_refresh']) {
-                                // use the default ol-marker for all non-claimed markers
-                                $markerData['type'] = 'ol-marker';
-                            }
-                        }
-                        if ($markerParams['transparent']) {
-                            $markerData['transparent'] = $markerParams['transparent'];
-                        }
+                    if ($markerKey) {
+                        $this->markers[$markerKey] = $markerData;
                     }
-
-                    // fixes the N/S and W/E marker overlap issues
-                    $markerKey = str_pad(
-                            str_pad((string)$markerLat, 11, '0', STR_PAD_RIGHT),
-                            12,
-                            '0',
-                            STR_PAD_LEFT
-                        ).(180 - $markerLon).$markerImage;
-                    $this->markers[$markerKey] = $markerData;
                 }
             }
             // together with the array keys, this ensures that southernmost keys are the last (therefore on top)
@@ -846,6 +806,9 @@ class StaticMapLiteEx
         $this->markers = array();
     }
 
+    /**
+     * @throws StaticMapLiteException
+     */
     private function checkDependencies()
     {
         // bail if we can't fetch HTTP resources
@@ -962,6 +925,75 @@ class StaticMapLiteEx
         }
         if ($markerBox['lon']['max'] < $markerLon) {
             $markerBox['lon']['max'] = $markerLon;
+        }
+    }
+
+    /**
+     * @param string $marker
+     * @param array $markerSetDisplay
+     * @return array
+     */
+    private function getMarkerData($marker, array &$markerSetDisplay)
+    {
+        list($markerLat, $markerLon, $markerImage) = preg_split('/,|%2C/', $marker);
+        $markerLat = floatval($markerLat);
+        $markerLon = floatval($markerLon);
+        if (($markerLat === $markerLon) && ($markerLat === 0.0)) {
+            // this is not a marker at all, this sets other params (size/letter/color)
+            list($param, $paramValue) = preg_split('/:|%3A/', $marker);
+            if ($param && array_key_exists($param, $markerSetDisplay)) {
+                $markerSetDisplay[$param] = $paramValue;
+            };
+
+            return array(null, null);
+        }
+
+        if ($markerImage) {
+            $markerImage = basename($markerImage);
+        }
+        // set basic data
+        $markerData = array(
+            'lat' => $markerLat,
+            'lon' => $markerLon,
+            'type' => $markerImage,
+        );
+        // set data parsed from parameters
+        if (! $markerImage) {
+            $this->setMarkerDisplay($markerSetDisplay, $markerData);
+        }
+
+        // fixes the N/S and W/E marker overlap issues
+        $markerKey = str_pad(
+                str_pad((string)$markerLat, 11, '0', STR_PAD_RIGHT),
+                12,
+                '0',
+                STR_PAD_LEFT
+            ).(180 - $markerLon).$markerImage;
+
+        return array($markerData, $markerKey);
+    }
+
+    /**
+     * @param array $markerSetDisplay
+     * @param array $markerData
+     */
+    private function setMarkerDisplay(array &$markerSetDisplay, array &$markerData)
+    {
+        if ($markerSetDisplay['color']) {
+            $markerPrototype = $this->markerPrototypes['ol-marker'];
+            $matches = array();
+            if (preg_match($markerPrototype['regex'], 'ol-marker-'.$markerSetDisplay['color'], $matches)) {
+                $markerData['type'] = $matches[0];
+            }
+            unset($matches);
+        } else {
+            if (@$this->request['visual_refresh']) {
+                // use the default ol-marker for all non-claimed markers
+                $markerData['type'] = 'ol-marker';
+            }
+        }
+        if ($markerSetDisplay['transparent']) {
+            $markerData['transparent'] = $markerSetDisplay['transparent'];
         }
     }
 }
