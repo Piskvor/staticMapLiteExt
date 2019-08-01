@@ -28,7 +28,9 @@
  *
  */
 
-class staticMapLiteEx
+require_once __DIR__ . '/staticmapliteexception.class.php';
+
+class StaticMapLiteEx
 {
 
     // most tile servers use 256; don't change this if you are not absolutely certain what it does
@@ -95,6 +97,10 @@ class staticMapLiteEx
     protected $useHTTPCache = true;
 
     // days to keep image as fresh, via Expires header
+
+    /**
+     * @var int
+     */
     protected $expireDays = 14;
 
     protected $scale = 1;
@@ -120,6 +126,10 @@ class staticMapLiteEx
     protected $lon;
     protected $width;
     protected $height;
+
+    /**
+     * @var resource
+     */
     protected $image;
     protected $maptype;
 
@@ -133,9 +143,13 @@ class staticMapLiteEx
     protected $offsetX;
     protected $offsetY;
 
+    protected $request;
+
+    protected $requestHeaders;
+
     /**
      * @param array|null $config
-     * @throws staticMapLiteException
+     * @throws StaticMapLiteException
      */
     public function __construct($config = null)
     {
@@ -145,11 +159,11 @@ class staticMapLiteEx
         }
         // bail if we can't fetch HTTP resources
         if (! $this->checkCurlFunctions()) {
-            throw new staticMapLiteException('Required library not loaded: curl');
+            throw new StaticMapLiteException('Required library not loaded: curl');
         }
         // bail if we can't work with images
         if (! $this->checkGdFunctions()) {
-            throw new staticMapLiteException('Required library not loaded: gd');
+            throw new StaticMapLiteException('Required library not loaded: gd');
         }
         $this->zoom = 0;
         $this->lat = 0;
@@ -278,6 +292,9 @@ class staticMapLiteEx
 
             foreach ($markerSets as $markerSet) {
                 $markers = preg_split('/%7C|\|/', $markerSet);
+                if (! $markers) {
+                    continue;
+                }
 
                 // reset between markers
                 $markerParams = array(
@@ -294,7 +311,7 @@ class staticMapLiteEx
                     if (($markerLat == $markerLon) && ($markerLat == 0)) {
                         // this is not a marker at all, this sets other params (size/letter/color)
                         list($param, $paramValue) = preg_split('/:|%3A/', $marker);
-                        if (array_key_exists($param, $markerParams)) {
+                        if ($param && array_key_exists($param, $markerParams)) {
                             $markerParams[$param] = $paramValue;
                         }
                         continue;
@@ -314,7 +331,9 @@ class staticMapLiteEx
                         $this->markerBox['lon']['max'] = $markerLon;
                     }
 
-                    $markerImage = basename($markerImage);
+                    if ($markerImage) {
+                        $markerImage = basename($markerImage);
+                    }
                     // set basic data
                     $markerData = array(
                         'lat' => $markerLat,
@@ -341,7 +360,7 @@ class staticMapLiteEx
 
                     // fixes the N/S and W/E marker overlap issues
                     $markerKey = str_pad(
-                        str_pad($markerLat, 11, '0', STR_PAD_RIGHT),
+                        str_pad((string) $markerLat, 11, '0', STR_PAD_RIGHT),
                         12,
                         '0',
                         STR_PAD_LEFT
@@ -422,7 +441,8 @@ class staticMapLiteEx
 
         // start from $maxZoom and work outwards from there
         $zoom = $maxZoom;
-        // for latitude, we need to correct (otherwise calculation would be correct on the equator only) - see http://wiki.openstreetmap.org/wiki/File:Tissot_mercator.png
+        // for latitude, we need to correct (otherwise calculation would be correct on the equator only)
+        // see http://wiki.openstreetmap.org/wiki/File:Tissot_mercator.png
         $latCorrection = 360 * cos(deg2rad($this->markerBox['lat']['center']));
 
         for (; $zoom >= $minZoom; $zoom--) {
@@ -476,7 +496,11 @@ class staticMapLiteEx
 
     public function createBaseMap()
     {
-        $this->image = imagecreatetruecolor($this->width, $this->height);
+        $image = imagecreatetruecolor($this->width, $this->height);
+        if (! $image) {
+            return;
+        }
+        $this->image = $image;
         $startX = floor($this->centerX - ($this->width / $this->tileSize) / 2);
         $startY = floor($this->centerY - ($this->height / $this->tileSize) / 2);
         $endX = ceil($this->centerX + ($this->width / $this->tileSize) / 2);
@@ -500,12 +524,17 @@ class staticMapLiteEx
                     $tileImage = imagecreatefromstring($tileData);
                 } else {
                     $tileImage = imagecreate($this->tileSize, $this->tileSize);
-                    $color = imagecolorallocate($tileImage, 255, 255, 255);
-                    @imagestring($tileImage, 1, 127, 127, 'err', $color);
+                    if ($tileImage) {
+                        $color = imagecolorallocate($tileImage, 255, 255, 255);
+                        @imagestring($tileImage, 1, 127, 127, 'err', $color);
+                    }
+                }
+                if (! $tileImage) {
+                    continue;
                 }
                 $destX = ($x - $startX) * $this->tileSize + $this->offsetX;
                 $destY = ($y - $startY) * $this->tileSize + $this->offsetY;
-                imagecopy($this->image, $tileImage, $destX, $destY, 0, 0, $this->tileSize, $this->tileSize);
+                imagecopy($this->image, $tileImage, (int) $destX, (int) $destY, 0, 0, $this->tileSize, $this->tileSize);
             }
         }
     }
@@ -527,6 +556,8 @@ class staticMapLiteEx
 
             $markerImageOffsetX = 0;
             $markerImageOffsetY = 0;
+            $markerShadowOffsetX = 0;
+            $markerShadowOffsetY = 0;
             // check for marker type, get settings from markerPrototypes
             if ($markerType) {
                 foreach ($this->markerPrototypes as $markerPrototype) {
@@ -568,6 +599,9 @@ class staticMapLiteEx
             } else {
                 $markerImg = imagecreatefrompng($this->markerBaseDir.'/lightblue1.png');
             }
+            if (! $markerImg) {
+                continue;
+            }
 
             // calculate pixel position from geographical location
             $destX = floor(
@@ -580,25 +614,26 @@ class staticMapLiteEx
             // check for shadow + create shadow resource
             if ($markerShadow && file_exists($this->markerBaseDir.'/'.$markerShadow)) {
                 $markerShadowImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerShadow);
-                /** @noinspection PhpUndefinedVariableInspection - if $markerShadow is falsy, so are $markerShadowOffset{X|Y} */
-                imagecopy(
-                    $this->image,
-                    $markerShadowImg,
-                    $destX + intval($markerShadowOffsetX),
-                    $destY + intval($markerShadowOffsetY),
-                    0,
-                    0,
-                    imagesx($markerShadowImg),
-                    imagesy($markerShadowImg)
-                );
+                if ($markerShadowImg) {
+                    imagecopy(
+                        $this->image,
+                        $markerShadowImg,
+                        (int) ($destX + intval($markerShadowOffsetX)),
+                        (int) ($destY + intval($markerShadowOffsetY)),
+                        0,
+                        0,
+                        imagesx($markerShadowImg),
+                        imagesy($markerShadowImg)
+                    );
+                }
             }
 
             // copy marker to basemap above shadow
             imagecopy(
                 $this->image,
                 $markerImg,
-                $destX + intval($markerImageOffsetX),
-                $destY + intval($markerImageOffsetY),
+                (int) ($destX + intval($markerImageOffsetX)),
+                (int) ($destY + intval($markerImageOffsetY)),
                 0,
                 0,
                 imagesx($markerImg),
@@ -661,9 +696,9 @@ class staticMapLiteEx
         return $this->mapCacheFile.".".$this->mapCacheExtension;
     }
 
-    public function mkdir_recursive($pathname, $mode)
+    public function mkdirRecursive($pathname, $mode)
     {
-        is_dir(dirname($pathname)) || $this->mkdir_recursive(dirname($pathname), $mode);
+        is_dir(dirname($pathname)) || $this->mkdirRecursive(dirname($pathname), $mode);
 
         return is_dir($pathname) || @mkdir($pathname, $mode);
     }
@@ -671,7 +706,7 @@ class staticMapLiteEx
     public function writeTileToCache($url, $data)
     {
         $filename = $this->tileUrlToFilename($url);
-        $this->mkdir_recursive(dirname($filename), 0777);
+        $this->mkdirRecursive(dirname($filename), 0777);
         file_put_contents($filename, $data);
     }
 
@@ -715,16 +750,18 @@ class staticMapLiteEx
     {
         // add OSM logo
         $logoImg = imagecreatefrompng($this->osmLogo);
-        imagecopy(
-            $this->image,
-            $logoImg,
-            imagesx($this->image) - imagesx($logoImg),
-            imagesy($this->image) - imagesy($logoImg),
-            0,
-            0,
-            imagesx($logoImg),
-            imagesy($logoImg)
-        );
+        if ($logoImg) {
+            imagecopy(
+                $this->image,
+                $logoImg,
+                (int) (imagesx($this->image) - imagesx($logoImg)),
+                (int) (imagesy($this->image) - imagesy($logoImg)),
+                0,
+                0,
+                imagesx($logoImg),
+                imagesy($logoImg)
+            );
+        }
     }
 
     public function sendHeader($filename = null, $etag = null)
@@ -737,7 +774,10 @@ class staticMapLiteEx
             header("Cache-Control: maxage=".$expires);
             header('Expires: '.gmdate('D, d M Y H:i:s', time() + $expires).' GMT');
             if ($filename != null && file_exists($filename)) {
-                header('Last-Modified: '.gmdate('D, d M Y H:i:s', filemtime($filename)).' GMT');
+                $modifiedTime = filemtime($filename);
+                if ($modifiedTime) {
+                    header('Last-Modified: '.gmdate('D, d M Y H:i:s', $modifiedTime).' GMT');
+                }
             }
             if ($etag != null) {
                 header('ETag: '.$etag);
@@ -777,7 +817,7 @@ class staticMapLiteEx
                 // map is not in cache, needs to be built..
                 $this->makeMap();
                 // ...and stored to disk, if possible
-                $this->mkdir_recursive(dirname($this->mapCacheIDToFilename()), 0777);
+                $this->mkdirRecursive(dirname($this->mapCacheIDToFilename()), 0777);
                 $this->applyOutputFilters($this->image, $this->mapCacheIDToFilename(), 9);
                 if (file_exists($this->mapCacheIDToFilename())) {
                     // we have a file, so we can check for its modification date later; but we also send the ETag
@@ -823,6 +863,9 @@ class staticMapLiteEx
             $w = $this->scale * $this->width;
             $h = $this->scale * $this->height;
             $image = imagecreatetruecolor($w, $h);
+            if (! $image) {
+                return false;
+            }
             imagecopyresampled($image, $image_orig, 0, 0, 0, 0, $w, $h, $this->width, $this->height);
         } else {
             $image = $image_orig;
@@ -832,7 +875,7 @@ class staticMapLiteEx
         // apply the required output format
         if ($this->format == 'jpeg') {
             // quality is PNG-derived (0-9), convert to something JPEG-worthy
-            return imagejpeg($image, $filename, 130 - ($quality * 10));
+            return imagejpeg($image, $filename, (int) (130 - ($quality * 10)));
         } else {
             if ($this->format == 'gif') {
                 return imagegif($image, $filename);
@@ -841,9 +884,4 @@ class staticMapLiteEx
             }
         }
     }
-}
-
-class staticMapLiteException extends Exception
-{
-    // just so that the caller can catch a sane exception type
 }

@@ -19,7 +19,7 @@ require_once(__DIR__.'/staticmapliteex.class.php');
   'ua' => 'staticMapLiteEx/0.04',
 
  */
-$map = new staticMapLiteEx(
+$map = new StaticMapLiteEx(
     array(
         'request' => $_GET,
         'headers' => $_SERVER,
