@@ -49,7 +49,7 @@ class staticMapLiteEx {
 		                    'offsetShadow'=>false
 		),
 		// openlayers standard markers
-		'ol-marker'=> array('regex'=>'/^ol-marker(|-red|-blue|-gold|-green)+$/',
+		'ol-marker'=> array('regex'=>'/^ol-marker(-red|-blue|-gold|-green)?$/',
 		                    'extension'=>'.png',
 		                    'transparent'=>true,
 		                    'shadow'=>'../marker_shadow.png',
