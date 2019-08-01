@@ -1,6 +1,6 @@
 <?php
 
-require_once(__DIR__.'/staticmapliteex.class.php');
+require_once(__DIR__ . '/staticmapliteex.class.php');
 
 /*
   All of the config parameters are optional - it is even possible to instantiate the class without any arguments at all:

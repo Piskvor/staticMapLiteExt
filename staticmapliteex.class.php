@@ -28,7 +28,7 @@
  *
  */
 
-require_once __DIR__.'/staticmapliteexception.class.php';
+require_once __DIR__ . '/staticmapliteexception.class.php';
 
 class StaticMapLiteEx
 {
@@ -176,7 +176,6 @@ class StaticMapLiteEx
         }
         $this->setDefaults();
         $this->configure($config);
-
     }
 
     public function parseParams()
@@ -309,7 +308,6 @@ class StaticMapLiteEx
         }
     }
 
-
     public function renderMarkers()
     {
         $markerIndex = 0; // used for auto-numbering markers
@@ -342,9 +340,9 @@ class StaticMapLiteEx
             }
 
             // check required files or set default
-            if ($markerFilename == '' || ! file_exists($this->markerBaseDir.'/'.$markerFilename)) {
+            if ($markerFilename == '' || ! file_exists($this->markerBaseDir . '/' . $markerFilename)) {
                 $markerIndex++;
-                $markerFilename = 'lightblue'.$markerIndex.'.png'; // auto-number markers
+                $markerFilename = 'lightblue' . $markerIndex . '.png'; // auto-number markers
                 $markerImageOffsetX = 0;
                 $markerImageOffsetY = -19;
             }
@@ -363,8 +361,8 @@ class StaticMapLiteEx
             );
 
             // check for shadow + create shadow resource
-            if ($markerShadow && file_exists($this->markerBaseDir.'/'.$markerShadow)) {
-                $markerShadowImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerShadow);
+            if ($markerShadow && file_exists($this->markerBaseDir . '/' . $markerShadow)) {
+                $markerShadowImg = imagecreatefrompng($this->markerBaseDir . '/' . $markerShadow);
                 if ($markerShadowImg) {
                     imagecopy(
                         $this->image,
@@ -395,7 +393,7 @@ class StaticMapLiteEx
 
     public function tileUrlToFilename($url)
     {
-        return $this->tileCacheBaseDir."/".preg_replace(array('~^https?://~i'), '', $url);
+        return $this->tileCacheBaseDir . '/' . preg_replace(array('~^https?://~i'), '', $url);
     }
 
     public function checkTileCache($url)
@@ -403,9 +401,9 @@ class StaticMapLiteEx
         $filename = $this->tileUrlToFilename($url);
         if (file_exists($filename)) {
             return file_get_contents($filename);
-        } else {
-            return '';
         }
+
+        return '';
     }
 
     public function checkMapCache()
@@ -418,7 +416,7 @@ class StaticMapLiteEx
     public function serializeParams()
     {
         return join(
-            "&",
+            '&',
             array(
                 $this->zoom,
                 $this->lat,
@@ -436,14 +434,14 @@ class StaticMapLiteEx
     public function mapCacheIDToFilename()
     {
         if (! $this->mapCacheFile) {
-            $this->mapCacheFile = $this->mapCacheBaseDir."/".$this->maptype."/".$this->zoom."/cache_".substr(
-                    $this->mapCacheID,
-                    0,
-                    2
-                )."/".substr($this->mapCacheID, 2, 2)."/".substr($this->mapCacheID, 4);
+            $this->mapCacheFile = $this->mapCacheBaseDir . '/' . $this->maptype . '/' . $this->zoom . '/cache_' . substr(
+                $this->mapCacheID,
+                0,
+                2
+                ) . '/' . substr($this->mapCacheID, 2, 2) . '/' . substr($this->mapCacheID, 4);
         }
 
-        return $this->mapCacheFile.".".$this->mapCacheExtension;
+        return $this->mapCacheFile . '.' . $this->mapCacheExtension;
     }
 
     public function mkdirRecursive($pathname, $mode)
@@ -516,21 +514,21 @@ class StaticMapLiteEx
 
     public function sendHeader($filename = null, $etag = null)
     {
-        header('Content-Type: image/'.$this->format); // it's an image
-        header("Pragma: public"); // ancient IE hack
+        header('Content-Type: image/' . $this->format); // it's an image
+        header('Pragma: public'); // ancient IE hack
 
         if ($this->useHTTPCache) {
             $expires = (60 * 60 * 24) * $this->expireDays;
-            header("Cache-Control: maxage=".$expires);
-            header('Expires: '.gmdate('D, d M Y H:i:s', time() + $expires).' GMT');
+            header('Cache-Control: maxage=' . $expires);
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $expires) . ' GMT');
             if ($filename != null && file_exists($filename)) {
                 $modifiedTime = filemtime($filename);
                 if ($modifiedTime) {
-                    header('Last-Modified: '.gmdate('D, d M Y H:i:s', $modifiedTime).' GMT');
+                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $modifiedTime) . ' GMT');
                 }
             }
             if ($etag != null) {
-                header('ETag: '.$etag);
+                header('ETag: ' . $etag);
             }
         }
     }
@@ -564,13 +562,12 @@ class StaticMapLiteEx
         $this->parseParams();
         if ($this->useMapCache) {
             return $this->showCachedMap($etag);
-        } else {
-            // no cache, make map, send headers and deliver png
-            $this->makeMap();
-            $this->sendHeader(null, $etag);
-
-            return $this->applyOutputFilters($this->image);
         }
+        // no cache, make map, send headers and deliver png
+        $this->makeMap();
+        $this->sendHeader(null, $etag);
+
+        return $this->applyOutputFilters($this->image);
     }
 
     protected function applyOutputFilters($image_orig, $filename = null, $quality = null, $filters = null)
@@ -593,13 +590,12 @@ class StaticMapLiteEx
         if ($this->format == 'jpeg') {
             // quality is PNG-derived (0-9), convert to something JPEG-worthy
             return imagejpeg($image, $filename, (int)(130 - ($quality * 10)));
-        } else {
-            if ($this->format == 'gif') {
-                return imagegif($image, $filename);
-            } else {
-                return imagepng($image, $filename, $quality, $filters);
-            }
         }
+        if ($this->format == 'gif') {
+            return imagegif($image, $filename);
+        }
+
+        return imagepng($image, $filename, $quality, $filters);
     }
 
     /**
@@ -756,7 +752,6 @@ class StaticMapLiteEx
 
     /**
      * @param string $marker
-     * @param array $markerBox
      */
     private function adjustMarkerBoxBounds($marker, array &$markerBox)
     {
@@ -784,7 +779,6 @@ class StaticMapLiteEx
 
     /**
      * @param string $marker
-     * @param array $markerSetDisplay
      * @return array
      */
     private function getMarkerData($marker, array &$markerSetDisplay)
@@ -818,25 +812,23 @@ class StaticMapLiteEx
 
         // fixes the N/S and W/E marker overlap issues
         $markerKey = str_pad(
-                str_pad((string)$markerLat, 11, '0', STR_PAD_RIGHT),
-                12,
-                '0',
-                STR_PAD_LEFT
-            ).(180 - $markerLon).$markerImage;
+            str_pad((string)$markerLat, 11, '0', STR_PAD_RIGHT),
+            12,
+            '0',
+            STR_PAD_LEFT
+            ) . (180 - $markerLon) . $markerImage;
 
         return array($markerData, $markerKey);
     }
 
     /**
-     * @param array $markerSetDisplay
-     * @param array $markerData
      */
     private function setMarkerDisplay(array &$markerSetDisplay, array &$markerData)
     {
         if ($markerSetDisplay['color']) {
             $markerPrototype = $this->markerPrototypes['ol-marker'];
             $matches = array();
-            if (preg_match($markerPrototype['regex'], 'ol-marker-'.$markerSetDisplay['color'], $matches)) {
+            if (preg_match($markerPrototype['regex'], 'ol-marker-' . $markerSetDisplay['color'], $matches)) {
                 $markerData['type'] = $matches[0];
             }
             unset($matches);
@@ -860,7 +852,7 @@ class StaticMapLiteEx
             $this->lon = floatval($this->lon);
         } else {
             if (count(
-                    $this->markers
+                $this->markers
                 ) && $this->minZoom !== null && $this->maxZoom !== null && $this->minZoom <= $this->maxZoom) {
                 // if we have markers but not center, find the center and zoom from marker position(s)
                 list($this->lat, $this->lon, $this->zoom) = $this->getCenterFromMarkers(
@@ -937,20 +929,20 @@ class StaticMapLiteEx
             if (preg_match($markerPrototype['regex'], $markerType, $matches)) {
                 if ($markerTransparency && $markerPrototype['transparent']) {
                     // only if transparency requested and available
-                    $markerFilename = $matches[0].'-transparent'.$markerPrototype['extension'];
+                    $markerFilename = $matches[0] . '-transparent' . $markerPrototype['extension'];
                 } else {
-                    $markerFilename = $matches[0].$markerPrototype['extension'];
+                    $markerFilename = $matches[0] . $markerPrototype['extension'];
                 }
                 if ($markerPrototype['offsetImage']) {
                     list($markerImageOffsetX, $markerImageOffsetY) = explode(
-                        ",",
+                        ',',
                         $markerPrototype['offsetImage']
                     );
                 }
                 $markerShadow = $markerPrototype['shadow'];
                 if ($markerShadow) {
                     list($markerShadowOffsetX, $markerShadowOffsetY) = explode(
-                        ",",
+                        ',',
                         $markerPrototype['offsetShadow']
                     );
                 }
@@ -974,10 +966,10 @@ class StaticMapLiteEx
     private function getMarkerImageResource($markerFilename)
     {
         // create img resource
-        if (file_exists($this->markerBaseDir.'/'.$markerFilename)) {
-            $markerImg = imagecreatefrompng($this->markerBaseDir.'/'.$markerFilename);
+        if (file_exists($this->markerBaseDir . '/' . $markerFilename)) {
+            $markerImg = imagecreatefrompng($this->markerBaseDir . '/' . $markerFilename);
         } else {
-            $markerImg = imagecreatefrompng($this->markerBaseDir.'/lightblue1.png');
+            $markerImg = imagecreatefrompng($this->markerBaseDir . '/lightblue1.png');
         }
 
         return $markerImg;
@@ -1001,29 +993,27 @@ class StaticMapLiteEx
                 $this->sendHeader($this->mapCacheIDToFilename(), $etag);
 
                 return file_get_contents($this->mapCacheIDToFilename());
-            } else {
-                // map is not stored in disk cache, so we only send the ETag
-                $this->sendHeader(null, $etag);
-
-                return $this->applyOutputFilters($this->image);
             }
-        } else {
-            // map is in our disk cache
-            if ($this->useHTTPCache && array_key_exists('HTTP_IF_MODIFIED_SINCE', $this->requestHeaders)) {
-                $request_time = strtotime($this->requestHeaders['HTTP_IF_MODIFIED_SINCE']);
-                $file_time = filemtime($this->mapCacheIDToFilename());
-                if ($request_time >= $file_time) {
-                    // the map is already in browser's cache, we don't need to send anything
-                    header('HTTP/1.1 304 Not Modified');
+            // map is not stored in disk cache, so we only send the ETag
+            $this->sendHeader(null, $etag);
 
-                    return '';
-                }
-            }
-            // we have a file, so we can check for its modification date later; but we also send the ETag
-            $this->sendHeader($this->mapCacheIDToFilename(), $etag);
-
-            return file_get_contents($this->mapCacheIDToFilename());
+            return $this->applyOutputFilters($this->image);
         }
+        // map is in our disk cache
+        if ($this->useHTTPCache && array_key_exists('HTTP_IF_MODIFIED_SINCE', $this->requestHeaders)) {
+            $request_time = strtotime($this->requestHeaders['HTTP_IF_MODIFIED_SINCE']);
+            $file_time = filemtime($this->mapCacheIDToFilename());
+            if ($request_time >= $file_time) {
+                // the map is already in browser's cache, we don't need to send anything
+                header('HTTP/1.1 304 Not Modified');
+
+                return '';
+            }
+        }
+        // we have a file, so we can check for its modification date later; but we also send the ETag
+        $this->sendHeader($this->mapCacheIDToFilename(), $etag);
+
+        return file_get_contents($this->mapCacheIDToFilename());
     }
 
     private function determineMapType()
