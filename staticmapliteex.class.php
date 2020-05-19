@@ -818,7 +818,7 @@ class StaticMapLiteEx
             STR_PAD_LEFT
             ) . (180 - $markerLon) . $markerImage;
 
-        return array($markerData, $markerKey);
+        return array($markerKey, $markerData);
     }
 
     /**
